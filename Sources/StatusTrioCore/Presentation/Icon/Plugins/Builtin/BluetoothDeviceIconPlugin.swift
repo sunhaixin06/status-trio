@@ -25,6 +25,12 @@ struct BluetoothDeviceIconPlugin: IconContentPlugin {
             // "selected device address" is required.
             let selectedAvailable = inputs.sources.availability[source.rawValue] == .available
                 && inputs.sources.connectedBluetoothDeviceSymbol != nil
+            if inputs.sources.hasSelectedConnectedBluetoothDevice && !selectedAvailable {
+                if case let .unavailable(reason) = inputs.sources.availability[source.rawValue] {
+                    return .unavailable(reason)
+                }
+                return .unavailable(.disconnected)
+            }
             let canShow = StatusMappings.canShowBluetoothIcon(
                 currentDevice: inputs.system.snapshot.volume.currentDevice,
                 options: context.legacy.bluetooth

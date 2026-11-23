@@ -33,6 +33,7 @@ final class AppEnvironment {
     private var inputSourceLifecycleCancellables = Set<AnyCancellable>()
     private var hardwareRingDemandWiring: IconHardwareDemandWiring?
     private var hardwareSamplingSettingsCancellables = Set<AnyCancellable>()
+    private var bluetoothIconUpdates: AnyCancellable?
     private var localIconDemandWiring: IconLiveDemandWiring?
     private var localIconPluginCancellables = Set<AnyCancellable>()
     private let localIconRefreshCoalescer = IconLiveResolutionCoalescer(
@@ -170,6 +171,7 @@ final class AppEnvironment {
         store.bindMobileBatterySettings(settings)
         store.bindLowPowerModeSettings(settings)
         store.bindBluetoothSettings(settings)
+        startBluetoothIconUpdates()
         store.bindExternalVolumeSettings(settings)
         store.bindExternalBrightnessSettings(settings)
         store.start()
@@ -203,6 +205,8 @@ final class AppEnvironment {
         inputSourceController.stop()
         appIconController.stop()
         mainMenuController.stop()
+        bluetoothIconUpdates?.cancel()
+        bluetoothIconUpdates = nil
         store.stop()
         hardwareBackgroundDemandController.stop()
         hardwareRingDemandWiring?.stop()
@@ -220,6 +224,26 @@ final class AppEnvironment {
         bluetoothProfilerCache.resetIfUnused()
         iconPresentation.stop()
         releaseRebuildableResources()
+    }
+
+    private func startBluetoothIconUpdates() {
+        let devices = store.bluetoothDevices
+        bluetoothIconUpdates = Publishers.CombineLatest(
+            Publishers.CombineLatest4(devices.$devices.removeDuplicates(), devices.$availability.removeDuplicates(),
+                                      devices.$batteryLevels.removeDuplicates(), devices.$batteryLevelsUpdatedAt.removeDuplicates()),
+            Publishers.CombineLatest3(settings.$_airPodsIconDeviceAddress.removeDuplicates(),
+                                      settings.$bluetoothNetworkIconDeviceAddress.removeDuplicates(),
+                                      devices.$authorizationStatus.removeDuplicates())
+        )
+        .dropFirst()
+        // Source resolution reads the committed controller and settings values.
+        .receive(on: DispatchQueue.main)
+        .sink { [weak self] _, _ in
+            guard let self, self.iconPresentation.demand.subscribedBindings.contains(where: {
+                $0.pluginID == "builtin.airpods-battery" || $0.pluginID == "builtin.bluetooth-device"
+            }) else { return }
+            self.iconPresentation.refresh()
+        }
     }
 
     /// Starts the local package runtime and keeps it in step with the resolved
@@ -607,7 +631,8 @@ final class AppEnvironment {
                     bluetooth: appearance.bluetoothAudioOptions
                 ),
                 menuBarSize: appearance.iconSize,
-                testsChargingEffect: settings.testsChargingEffect
+                testsChargingEffect: settings.testsChargingEffect,
+                statusStripLayout: settings.statusStripLayout
             ),
             snapshots: store.$snapshot
                 .combineLatest(settings.$simulatesNoBattery)
@@ -636,13 +661,24 @@ final class AppEnvironment {
                     snapshot: snapshot,
                     runtimeOptions: settings.iconRuntimePresentationOptions
                 )
+                let bluetooth = store.bluetoothDevices
+                let bluetoothAvailability: BluetoothAvailability = switch bluetooth.authorization {
+                case .denied: .authorizationDenied
+                case .restricted: .authorizationRestricted
+                case .allowed, .notDetermined: bluetooth.availability
+                }
                 inputs.sources = IconPresentationResourceResolver.sourceSnapshot(
                     snapshot: snapshot,
                     bluetoothDevices: store.bluetoothDevices.devices,
                     batteryLevels: store.bluetoothDevices.batteryLevels,
                     batteryLevelsUpdatedAt: store.bluetoothDevices.batteryLevelsUpdatedAt,
                     selectedAirPodsAddress: settings.airPodsIconDeviceAddress,
-                    selectedConnectedDeviceAddress: settings.bluetoothNetworkIconDeviceAddress
+                    selectedConnectedDeviceAddress: settings.bluetoothNetworkIconDeviceAddress,
+                    bluetoothAvailability: bluetoothAvailability,
+                    // Both event sources must be live to keep a known value when
+                    // nothing changes for longer than the ordinary freshness window.
+                    holdsAirPodsReading: store.airPodsIconBatteryClaimed
+                        && bluetooth.isMonitoringConnectionEvents && bluetooth.isMonitoringAccessoryBatteryEvents
                 )
                 let hardwareSnapshot = store.hardwareMetrics.observable.snapshot
                 inputs.sources.hardwareMetrics = hardwareSnapshot
@@ -665,7 +701,8 @@ final class AppEnvironment {
                     bindings: slotBindings,
                     registry: localIconPluginRuntime.registry
                 )
-                return IconSceneMapping(scene: resolution.scene, demand: resolution.demand)
+                return IconSceneMapping(scene: resolution.scene, demand: resolution.demand,
+                                        trace: resolution.trace)
             }
         )
         let chargingEffectClock = ChargingEffectClock()
@@ -724,6 +761,7 @@ final class AppEnvironment {
                 onboardingWindowController?.show()
             },
             chargingEffectClock: chargingEffectClock,
+            iconPresentation: iconPresentation,
             inputSourceController: inputSourceController,
             globalShortcutController: globalShortcutController,
             chargeToFullNow: chargeToFullNow,

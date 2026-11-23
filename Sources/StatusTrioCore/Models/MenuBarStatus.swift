@@ -41,7 +41,8 @@ struct MenuBarStatus: Equatable, Sendable {
         volume: MenuBarVolumeStatus
     ) {
         self.battery = battery
-        // The frequency band is popover-only metadata, not an icon input.
+        // Preserve the legacy scene's normalized input. Only the connection
+        // strip projects the band, directly from the status snapshot.
         self.wifi = WiFiStatus(state: wifi.state, rssi: wifi.rssi,
                                ssid: wifi.ssid, nameAccess: wifi.nameAccess)
         self.connection = connection
@@ -58,4 +59,10 @@ struct MenuBarStatus: Equatable, Sendable {
     }
 
     static let placeholder = MenuBarStatus(snapshot: .placeholder)
+
+    func stripSnapshot(band: WiFiFrequencyBand? = nil) -> StatusSnapshot {
+        StatusSnapshot(battery: battery, wifi: WiFiStatus(state: wifi.state, rssi: wifi.rssi, band: band), connection: connection,
+                       volume: VolumeStatus(scalar: volume.scalar, isMuted: volume.isMuted,
+                                            deviceName: volume.deviceName, currentDevice: volume.currentDevice))
+    }
 }

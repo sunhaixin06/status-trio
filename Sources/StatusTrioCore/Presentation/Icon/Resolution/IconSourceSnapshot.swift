@@ -7,6 +7,7 @@ struct IconSourceSnapshot: Equatable, Sendable {
     /// The selected device's capability is separate from the system's current
     /// output device; nil preserves the legacy unknown/default behavior.
     var connectedBluetoothDeviceIsAudio: Bool? = nil
+    var hasSelectedConnectedBluetoothDevice = false
     var holdingSourceIDs: Set<String> = []
     /// The latest hardware-metric samples, read-only for the hardware ring.
     var hardwareMetrics: HardwareMetricsSnapshot = .empty

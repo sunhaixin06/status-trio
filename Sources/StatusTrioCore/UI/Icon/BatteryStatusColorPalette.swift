@@ -2,12 +2,14 @@ import AppKit
 
 /// Concrete colours resolved once per render, before drawing any primitives.
 ///
-/// The system semantic colours are starting points, not a promise that they
-/// match the system battery icon pixel for pixel. Resolving once here keeps the
-/// renderer's non-main-actor raster path off `NSAppearance.performAsCurrentDrawingAppearance`
-/// per primitive, and lets a real appearance (including high contrast) decide
-/// the variant instead of a hard-coded aqua/darkAqua guess.
+/// The DIY theme uses quieter light/dark accents for small status glyphs.
+/// Increased-contrast appearances retain the system's semantic colours.
 struct BatteryStatusColorPalette {
+    private static let lightAccents: (charging: UInt32, lowPower: UInt32, highPower: UInt32, critical: UInt32) =
+        (0x176C56, 0x815B16, 0x366294, 0xAF3F45)
+    private static let darkAccents: (charging: UInt32, lowPower: UInt32, highPower: UInt32, critical: UInt32) =
+        (0x71C9AE, 0xDDB46A, 0x91B8E8, 0xF38E91)
+
     /// The plain discharging baseline: the label colour, matching the renderer's
     /// `foreground` so a `.system` selection is pixel-identical to the old look.
     let discharging: CGColor
@@ -23,7 +25,10 @@ struct BatteryStatusColorPalette {
     /// The middle Bluetooth glyph colour, resolved from the scene selection.
     let bluetoothIcon: CGColor
 
-    static func resolved(appearance: NSAppearance) -> Self {
+    static func resolved(
+        appearance: NSAppearance,
+        increasedContrast: Bool = NSWorkspace.shared.accessibilityDisplayShouldIncreaseContrast
+    ) -> Self {
         var result = Self(
             discharging: CGColor(gray: 0, alpha: 1),
             dischargingIsSystem: true,
@@ -38,13 +43,14 @@ struct BatteryStatusColorPalette {
             // (black in light, white in dark), so derive it from the label colour
             // exactly the way `renderEnvironment` derives its ink.
             let isDark = (NSColor.labelColor.usingColorSpace(.deviceRGB)?.brightnessComponent ?? 0) > 0.5
+            let accents = isDark ? darkAccents : lightAccents
             result = Self(
                 discharging: CGColor(gray: isDark ? 1 : 0, alpha: 1),
                 dischargingIsSystem: true,
-                charging: rgb(.systemGreen),
-                lowPower: rgb(.systemYellow),
-                highPower: rgb(.systemBlue),
-                critical: rgb(.systemRed),
+                charging: increasedContrast ? rgb(.systemGreen) : rgb(accents.charging),
+                lowPower: increasedContrast ? rgb(.systemYellow) : rgb(accents.lowPower),
+                highPower: increasedContrast ? rgb(.systemBlue) : rgb(accents.highPower),
+                critical: increasedContrast ? rgb(.systemRed) : rgb(accents.critical),
                 bluetoothIcon: rgb(.systemBlue)
             )
         }
@@ -134,6 +140,11 @@ struct BatteryStatusColorPalette {
 
     private static func rgb(_ color: NSColor) -> CGColor {
         color.usingColorSpace(.deviceRGB)?.cgColor ?? color.cgColor
+    }
+
+    private static func rgb(_ hex: UInt32) -> CGColor {
+        func component(_ shift: UInt32) -> CGFloat { CGFloat((hex >> shift) & 0xFF) / 255 }
+        return NSColor(srgbRed: component(16), green: component(8), blue: component(0), alpha: 1).cgColor
     }
 }
 

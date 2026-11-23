@@ -96,11 +96,13 @@ enum IconPaletteResolver {
                 .dots(DotsState(count: dots.count, activeCount: dots.activeCount,
                                 color: resolve(role: dots.color, style: appearance.footer.color),
                                 strokeScale: appearance.footer.strokeScale,
-                                inactiveColor: resolve(role: dots.inactiveColor, style: appearance.footer.color)))
+                                inactiveColor: resolve(role: dots.inactiveColor, style: appearance.footer.color),
+                                metricReading: dots.metricReading))
             case let .arc(arc):
                 .arc(ArcState(progress: arc.progress, color: resolve(role: arc.color, style: appearance.footer.color),
                               strokeScale: appearance.footer.strokeScale,
-                              inactiveColor: resolve(role: arc.inactiveColor, style: appearance.footer.color)))
+                              inactiveColor: resolve(role: arc.inactiveColor, style: appearance.footer.color),
+                              isVertical: arc.isVertical, metricReading: arc.metricReading))
             }
         }
         // Carry the scene-level payloads through appearance resolution: they are

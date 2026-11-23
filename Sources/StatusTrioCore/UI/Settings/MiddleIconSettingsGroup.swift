@@ -197,8 +197,15 @@ private struct MiddleBluetoothIconOptions: View {
     var body: some View {
         VStack(spacing: 0) {
             if bluetoothDevices.authorization != .allowed {
-                permissionRow
+                BluetoothIconPermissionRow(statusStore: statusStore, bluetoothDevices: bluetoothDevices)
                 SettingsDivider()
+            }
+            LiveIconSettingsStatus { output in
+                let trace = output.trace.center
+                guard trace.role != .primary || trace.reason == .overridden(.networkProblem) else { return nil }
+                let reasonKeys = IconResolutionExplanation.localizationKeys(for: trace)
+                let current = trace.role == .fallback ? [LocalizationKey.settingsMiddleIconNetwork] : []
+                return (current + reasonKeys).map { localization.string($0) }.joined(separator: " · ")
             }
             networkIconSourceRow
             SettingsDivider()
@@ -218,23 +225,6 @@ private struct MiddleBluetoothIconOptions: View {
         .onDisappear {
             if let token = settingsDemandToken { statusStore.endBluetoothSettingsDemand(token) }
             settingsDemandToken = nil
-        }
-    }
-
-    private var permissionRow: some View {
-        let undetermined = bluetoothDevices.authorization == .notDetermined
-        return SettingsRow("exclamationmark.triangle.fill", tint: .orange,
-            title: localization.string(.settingsBluetoothPermissionRequired),
-            subtitle: localization.string(undetermined
-                ? .settingsBluetoothPermissionNotDeterminedDescription
-                : .settingsBluetoothPermissionDeniedDescription)) {
-            Button(localization.string(undetermined
-                ? .bluetoothActionRequestAuthorization
-                : .bluetoothActionOpenPermissionSettings)) {
-                if undetermined { statusStore.requestBluetoothAuthorization() }
-                else { statusStore.openBluetoothPermissionSettings() }
-            }
-            .controlSize(.small)
         }
     }
 
@@ -359,6 +349,29 @@ private struct MiddleBluetoothIconOptions: View {
 
 }
 
+struct BluetoothIconPermissionRow: View {
+    let statusStore: SystemStatusStore
+    @ObservedObject var bluetoothDevices: BluetoothDeviceController
+    @EnvironmentObject private var localization: Localization
+
+    var body: some View {
+        let undetermined = bluetoothDevices.authorization == .notDetermined
+        SettingsRow("exclamationmark.triangle.fill", tint: .orange,
+            title: localization.string(.settingsBluetoothPermissionRequired),
+            subtitle: localization.string(undetermined
+                ? .settingsBluetoothPermissionNotDeterminedDescription
+                : .settingsBluetoothPermissionDeniedDescription)) {
+            Button(localization.string(undetermined
+                ? .bluetoothActionRequestAuthorization
+                : .bluetoothActionOpenPermissionSettings)) {
+                if undetermined { statusStore.requestBluetoothAuthorization() }
+                else { statusStore.openBluetoothPermissionSettings() }
+            }
+            .controlSize(.small)
+        }
+    }
+}
+
 /// A real miniature of the status icon with only the middle content changed,
 /// so each tile shows exactly what the slot will draw.
 private struct MiddleIconSourcePreview: View {
@@ -448,7 +461,7 @@ private enum MiddleIconPreviewScene {
             configuration: configuration,
             now: now
         )
-        return StatusIconPreviewCache.shared.image(
+        return StatusIconPreviewCache.shared.stripImage(
             scene: scene,
             size: 28,
             scale: 2,

@@ -83,12 +83,16 @@ struct MenuBarPreviewBar<TrailingAccessory: View>: View {
     var bottomIndicatorMetric: HardwareMonitorMetric = .cpuUsage
     var bottomIndicatorMetricColor: IconRGBA? = nil
     var bottomIndicatorStyle: VolumeDisplayStyle? = nil
+    var layout: StatusStripLayout = .unified
+    var wifiBand: WiFiFrequencyBand? = nil
+    var resolvedScene: IconSceneState? = nil
     /// Rendered after `rightContext` inside the same `HStack`, so a caller's
     /// control takes part in the bar's standard 14 pt element spacing instead of
     /// needing a reserved trailing inset that its localized width cannot match.
     var trailingAccessory: () -> TrailingAccessory
 
     var scene: IconSceneState {
+        if let resolvedScene { return resolvedScene }
         let base = IconPreviewScene.make(
             status: status,
             configuration: IconPresentationConfiguration(
@@ -123,7 +127,13 @@ struct MenuBarPreviewBar<TrailingAccessory: View>: View {
         } else {
             resolved = base
         }
-        return resolved.withChargingEffectEnabled(showsChargingEffect)
+        var scene = resolved.withChargingEffectEnabled(showsChargingEffect)
+        scene.statusStrip = StatusStrip(layout: layout, snapshot: status.stripSnapshot(band: wifiBand),
+                                       threshold: batteryOptions.criticalThreshold,
+                                       prioritizesNetworkErrors: connectionOptions.prioritizesNetworkErrors,
+                                       showsVolume: scene.bottomIndicatorSource == .volume,
+                                       footerMetric: scene.bottomIndicatorSource == .metric ? bottomIndicatorMetric : nil)
+        return scene
     }
 
     init(
@@ -144,6 +154,9 @@ struct MenuBarPreviewBar<TrailingAccessory: View>: View {
         bottomIndicatorMetric: HardwareMonitorMetric = .cpuUsage,
         bottomIndicatorMetricColor: IconRGBA? = nil,
         bottomIndicatorStyle: VolumeDisplayStyle? = nil,
+        layout: StatusStripLayout = .unified,
+        wifiBand: WiFiFrequencyBand? = nil,
+        resolvedScene: IconSceneState? = nil,
         @ViewBuilder trailingAccessory: @escaping () -> TrailingAccessory
     ) {
         self.status = status
@@ -163,6 +176,9 @@ struct MenuBarPreviewBar<TrailingAccessory: View>: View {
         self.bottomIndicatorMetric = bottomIndicatorMetric
         self.bottomIndicatorMetricColor = bottomIndicatorMetricColor
         self.bottomIndicatorStyle = bottomIndicatorStyle
+        self.layout = layout
+        self.wifiBand = wifiBand
+        self.resolvedScene = resolvedScene
         self.trailingAccessory = trailingAccessory
     }
 
@@ -176,7 +192,7 @@ struct MenuBarPreviewBar<TrailingAccessory: View>: View {
                 Spacer(minLength: 16)
 
                 ZStack {
-                    Image(nsImage: StatusIconPreviewCache.shared.image(
+                    Image(nsImage: StatusIconPreviewCache.shared.stripImage(
                         scene: scene,
                         size: iconSize,
                         scale: NSScreen.main?.backingScaleFactor ?? 2,
@@ -189,14 +205,12 @@ struct MenuBarPreviewBar<TrailingAccessory: View>: View {
                     if let highlightedPart {
                         StatusIconPartHighlight(
                             part: highlightedPart,
-                            volumeDisplayStyle: volumeOptions.displayStyle,
                             lineWidth: max(2.5, iconSize * 0.075)
                         )
-                        .frame(width: iconSize, height: iconSize)
+                        .frame(width: min(104, iconSize * 4), height: min(28, iconSize))
                         .opacity(highlightOpacity)
                     }
                 }
-                .frame(width: iconSize, height: iconSize)
                 .accessibilityHidden(true)
 
                 rightContext
@@ -413,6 +427,7 @@ private struct MacAppIcon: View {
 /// Real Dock artwork at an arbitrary preview size.
 struct DockIconTile: View {
     let status: MenuBarStatus
+    var layout: StatusStripLayout = .unified
     var batteryOptions: BatteryIconOptions = .standard
     var connectionOptions: ConnectionIconOptions = .standard
     var volumeOptions: VolumeIconOptions = .standard
@@ -428,6 +443,8 @@ struct DockIconTile: View {
     var systemPower: SystemPowerSample? = nil
     /// Injected by tests; the app shares one bounded cache.
     var previewCache: DockIconPreviewCache? = nil
+    var wifiBand: WiFiFrequencyBand? = nil
+    var resolvedScene: IconSceneState? = nil
 
     /// The raster length this tile's on-screen size needs, never the Dock's.
     var pixelLength: Int {
@@ -447,7 +464,8 @@ struct DockIconTile: View {
 
     @MainActor
     private var previewScene: IconSceneState {
-        IconPreviewScene.make(
+        if let resolvedScene { return resolvedScene }
+        var scene = IconPreviewScene.make(
             status: status,
             configuration: IconPresentationConfiguration(
                 battery: batteryOptions,
@@ -458,6 +476,11 @@ struct DockIconTile: View {
             inputSource: inputSource,
             systemPower: systemPower
         )
+        scene.statusStrip = StatusStrip(layout: layout, snapshot: status.stripSnapshot(band: wifiBand),
+                                       threshold: batteryOptions.criticalThreshold,
+                                       prioritizesNetworkErrors: connectionOptions.prioritizesNetworkErrors,
+                                       showsVolume: scene.bottomIndicatorSource == .volume)
+        return scene
     }
 
     /// The single place this tile resolves its bitmap.
@@ -485,16 +508,13 @@ struct DockIconTile: View {
             }
 
             if let highlightedPart {
-                let glyphFrame = DockIconGlyphLayout.frame(
-                    in: CGRect(x: 0, y: 0, width: size, height: size)
-                )
+                let scale = DockIconRenderer.statusStripTileFraction
                 StatusIconPartHighlight(
                     part: highlightedPart,
-                    volumeDisplayStyle: volumeOptions.displayStyle,
-                    lineWidth: max(3, size * 0.07)
+                    lineWidth: max(2, size * 0.045),
+                    isDock: true
                 )
-                .frame(width: glyphFrame.width, height: glyphFrame.height)
-                .position(x: glyphFrame.midX, y: glyphFrame.midY)
+                .frame(width: size * scale, height: size * scale)
                 .opacity(highlightOpacity)
             }
         }
@@ -506,13 +526,13 @@ struct DockIconTile: View {
 /// Production geometry overlaid at a larger optical weight for onboarding.
 struct StatusIconPartHighlight: View {
     let part: IconGuidePart
-    let volumeDisplayStyle: VolumeDisplayStyle
     var lineWidth: CGFloat
+    var isDock = false
 
     var body: some View {
         StatusIconPartShape(
             part: part,
-            volumeDisplayStyle: volumeDisplayStyle
+            isDock: isDock
         )
         .stroke(
             Color.accentColor,
@@ -533,55 +553,29 @@ struct StatusIconPartHighlight: View {
 
 private struct StatusIconPartShape: Shape {
     let part: IconGuidePart
-    let volumeDisplayStyle: VolumeDisplayStyle
+    let isDock: Bool
 
     func path(in rect: CGRect) -> Path {
-        let source: Path = switch part {
-        case .battery:
-            Path(StatusIconGeometry.batteryTrack())
-        case .network:
-            Path(
-                roundedRect: CGRect(x: 31.5, y: 34.4, width: 56, height: 56),
-                cornerRadius: 17
-            )
-        case .volume:
-            volumePath
-        }
-
-        let scale = min(
-            rect.width / StatusIconGeometry.canvas.width,
-            rect.height / StatusIconGeometry.canvas.height
-        )
-        let transform = CGAffineTransform(
-            a: scale,
-            b: 0,
-            c: 0,
-            d: scale,
-            tx: rect.minX
-                + (rect.width - StatusIconGeometry.canvas.width * scale) / 2,
-            ty: rect.minY
-                + (rect.height - StatusIconGeometry.canvas.height * scale) / 2
-        )
-        return source.applying(transform)
-    }
-
-    private var volumePath: Path {
-        switch volumeDisplayStyle {
-        case .arc:
-            return Path(StatusIconGeometry.volumeArcTrack())
-        case .dots:
-            var path = Path()
-            for point in StatusIconGeometry.volumeDots() {
-                path.addEllipse(
-                    in: CGRect(
-                        x: point.x - 8,
-                        y: point.y - 8,
-                        width: 16,
-                        height: 16
-                    )
-                )
+        if isDock {
+            let cell: CGRect = switch part {
+            case .battery: CGRect(x: 0.07, y: 0.13, width: 0.85, height: 0.44)
+            case .network: CGRect(x: 0.09, y: 0.60, width: 0.40, height: 0.28)
+            case .volume: CGRect(x: 0.55, y: 0.60, width: 0.37, height: 0.32)
             }
-            return path
+            return Path(roundedRect: CGRect(x: rect.minX + rect.width * cell.minX,
+                                            y: rect.minY + rect.height * cell.minY,
+                                            width: rect.width * cell.width, height: rect.height * cell.height),
+                        cornerRadius: min(5, rect.height / 12))
         }
+        let track = CGRect(x: rect.minX, y: rect.midY - rect.height * 0.26,
+                           width: rect.width, height: rect.height * 0.52)
+        let cell: (offset: CGFloat, width: CGFloat) = switch part {
+        case .battery: (0.04, 0.36)
+        case .network: (0.46, 0.22)
+        case .volume: (0.72, 0.24)
+        }
+        return Path(roundedRect: CGRect(x: track.minX + track.width * cell.offset,
+                                        y: track.minY, width: track.width * cell.width, height: track.height),
+                    cornerRadius: min(5, track.height / 3))
     }
 }

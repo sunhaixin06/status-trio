@@ -1,4 +1,12 @@
 "menu.version" = "Status Trio %@";
+"statusStrip.layout" = "狀態版面";
+"statusStrip.divider" = "細分隔線";
+"statusStrip.batteryWordmark" = "電池字標";
+"statusStrip.capsule" = "單膠囊";
+"statusStrip.gauge" = "電量刻度";
+"statusStrip.unified" = "一體三格";
+"statusStrip.connection" = "連線微艙";
+"statusStrip.alerts" = "異常優先";
 "menu.settings" = "設定…";
 "menu.quit" = "結束 Status Trio";
 "menu.about" = "關於 %@";
@@ -614,19 +622,20 @@
 "settings.wifi.symbolScaleDescription" = "調整狀態環內的 Wi-Fi 圖示縮放比例（100% - 180%）。";
 "settings.audio.indicatorStyleTitle" = "音量指示樣式";
 "settings.audio.indicatorStyle" = "顯示樣式";
-"settings.audio.indicatorStyleDescription" = "選擇在狀態環底部顯示為四個離散點或連續圓弧條。";
+"settings.audio.indicatorStyleDescription" = "選擇四點、橫條或直條。";
 "settings.audio.indicatorStyle.dots" = "四個點";
-"settings.audio.indicatorStyle.arc" = "圓弧條";
+"settings.audio.indicatorStyle.arc" = "橫條";
+"settings.audio.indicatorStyle.verticalBar" = "直條";
 "settings.audio.bottomIndicatorTitle" = "底部指示器";
-"settings.audio.bottomIndicatorDescription" = "選擇圖示下方指示條顯示的內容，四點或圓弧樣式不變。";
+"settings.audio.bottomIndicatorDescription" = "選擇圖示最後一格顯示的內容。";
 "settings.audio.bottomIndicatorSource" = "底部指示器資料來源";
 "settings.audio.bottomIndicatorSource.volume" = "音量";
 "settings.audio.bottomIndicatorSource.wifi" = "Wi-Fi";
 "settings.audio.bottomIndicatorSource.battery" = "電池";
 "settings.audio.bottomIndicatorSource.hidden" = "隱藏";
 "settings.audio.bottomIndicatorSource.metric" = "自訂";
-"settings.audio.bottomIndicatorMetric" = "自訂";
-"settings.audio.bottomIndicatorMetricDescription" = "選擇底部指示器顯示的硬體指標，四點或圓弧樣式不變。";
+"settings.audio.bottomIndicatorMetric" = "硬體指標";
+"settings.audio.bottomIndicatorMetricDescription" = "最後一格會顯示所選指標、即時數值和量表。";
 "settings.audio.airPodsInlineControlsTitle" = "耳機控制";
 "settings.audio.airPodsInlineControls" = "在音量面板中顯示 AirPods 控制";
 "settings.audio.airPodsInlineControlsDescription" = "在你的 AirPods 輸出旁顯示對話感知、空間音訊和自適應控制。關閉可隱藏這些基於私有 API 的控制。";
@@ -736,6 +745,7 @@
 "settings.appleDevicesAndBattery.description" = "已信任的 Apple 裝置和附近有名稱的裝置會顯示在藍牙列表中。";
 "settings.appleBackgroundRefresh" = "在背景更新 Apple 裝置電量";
 "settings.appleBackgroundRefresh.description" = "狀態面板關閉時，繼續更新已選 Apple 裝置的電量。";
+"settings.ringContent.airPodsBackground.description" = "狀態面板關閉時，繼續更新已連線的 AirPods 電量。";
 "settings.appleBackgroundRefresh.interval" = "背景更新電量的時間間隔";
 "settings.appleBackgroundRefresh.intervalValue" = "%d 分鐘";
 

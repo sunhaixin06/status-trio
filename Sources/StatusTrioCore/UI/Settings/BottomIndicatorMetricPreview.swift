@@ -39,16 +39,14 @@ enum BottomIndicatorMetricPreview {
     ) -> FooterState {
         let color = IconColorRole.custom(
             baseColor ?? HardwareRingColorConfiguration.recommendedBaseColor(for: metric))
-        switch style {
-        case .dots:
-            return .dots(DotsState(
-                count: 4,
-                activeCount: StatusMappings.volumeSteps(scalar: sampleProgress, isMuted: false) ?? 2,
-                color: color,
-                strokeScale: strokeScale))
-        case .arc:
-            return .arc(ArcState(progress: sampleProgress, color: color, strokeScale: strokeScale))
+        let reading: (Double, HardwareMetricUnit) = switch metric {
+        case .cpuTemperature, .gpuTemperature, .batteryTemperature: (52, .celsius)
+        case .fan: (1800, .rpm)
+        case .downloadSpeed, .uploadSpeed: (6_000_000, .bytesPerSecond)
+        default: (60, .percent)
         }
+        return HardwareRingMapper.footerBar(progress: sampleProgress, color: color, style: style, strokeScale: strokeScale,
+                                            reading: HardwareRingMapper.footerReading(reading.0, unit: reading.1))
     }
 
     /// A full icon scene: the ring and centre come from the shared fixed sample
@@ -81,7 +79,8 @@ enum BottomIndicatorMetricPreview {
                               baseColor: baseColor),
             statusColors: base.statusColors,
             bluetoothIconColor: base.bluetoothIconColor,
-            bottomIndicatorSource: .metric
+            bottomIndicatorSource: .metric,
+            statusStrip: StatusStrip(layout: .unified, snapshot: snapshot, threshold: 20, footerMetric: metric)
         )
     }
 }

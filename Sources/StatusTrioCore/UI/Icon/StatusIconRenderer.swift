@@ -1660,6 +1660,22 @@ extension StatusIconRenderer {
         case let .arc(arc):
             let hidden = sceneColor(for: arc.inactiveColor, foreground: foreground, statusPalette: statusPalette)
             let active = sceneColor(for: arc.color, foreground: foreground, statusPalette: statusPalette)
+            if arc.isVertical {
+                let width = 5 * CGFloat(arc.strokeScale)
+                let track = CGRect(x: StatusIconGeometry.canvas.midX - width / 2, y: 94, width: width, height: 20)
+                func drawBar(_ rect: CGRect, color: CGColor) {
+                    let radius = min(rect.width, rect.height) / 2
+                    context.setFillColor(color)
+                    context.addPath(CGPath(roundedRect: rect, cornerWidth: radius, cornerHeight: radius, transform: nil))
+                    context.fillPath()
+                }
+                if regions.contains(.footerTrack) { drawBar(track, color: hidden) }
+                if regions.contains(.footerFill), arc.progress > 0 {
+                    let height = track.height * arc.progress
+                    drawBar(CGRect(x: track.minX, y: track.maxY - height, width: width, height: height), color: active)
+                }
+                return
+            }
             if regions.contains(.footerTrack) {
                 context.setLineWidth(7 * CGFloat(arc.strokeScale))
                 context.setLineCap(.round)
@@ -1676,7 +1692,7 @@ extension StatusIconRenderer {
         }
     }
 
-    private static func sceneColor(
+    static func sceneColor(
         for role: IconColorRole,
         foreground: CGColor,
         statusPalette: BatteryStatusColorPalette

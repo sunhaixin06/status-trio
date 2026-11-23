@@ -112,6 +112,7 @@ final class DockVolumeRenderCoalescer {
         }
         return new.color == old.color
             && new.strokeScale == old.strokeScale
+            && new.isVertical == old.isVertical
             && abs(new.progress - old.progress) < arcMergeThreshold
     }
 }

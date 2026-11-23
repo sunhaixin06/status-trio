@@ -179,21 +179,32 @@ enum DockIconRenderer {
     /// The Icon Composer document owns the system icon shape, so this variant
     /// is a full-bleed square without the Dock tile's rounded body and border.
     /// Only the icon build and its preview test call it.
-    static func appIconArtwork(
-        scene: IconSceneState,
-        backgroundStyle: DockIconBackgroundStyle,
-        pixelLength: Int = DockIconRenderer.appIconArtworkPixelSize
-    ) -> CGImage? {
-        render(
-            scene: scene,
-            backgroundStyle: backgroundStyle,
-            phase: nil,
-            regions: .all,
-            pixelLength: pixelLength,
-            crop: nil,
-            drawsTileBackground: true,
-            body: .square
-        )
+    static func appIconArtwork(backgroundStyle: DockIconBackgroundStyle, rounded: Bool = false) -> CGImage? {
+        let size = appIconArtworkPixelSize
+        guard let context = scratchContext(width: size, height: size) else { return nil }
+        let canvas = CGRect(x: 0, y: 0, width: size, height: size)
+        let dark = backgroundStyle == .dark
+        context.clear(canvas)
+        context.setFillColor(dark ? color(red: 0.065, green: 0.135, blue: 0.16) : color(red: 0.9, green: 0.96, blue: 0.95))
+        context.addPath(rounded ? roundedRect(bodyRect, cornerRadius: bodyCornerRadius) : CGPath(rect: canvas, transform: nil))
+        context.fillPath()
+
+        // Three lanes: the leading bars are filled readings, and the trailing
+        // cells echo the compact state indicators in the menu bar layouts.
+        let ink = dark ? color(red: 0.78, green: 0.94, blue: 0.93) : color(red: 0.05, green: 0.21, blue: 0.23)
+        let track = dark ? color(red: 0.15, green: 0.25, blue: 0.28) : color(red: 0.75, green: 0.85, blue: 0.84)
+        let accent = dark ? color(red: 0.25, green: 0.85, blue: 0.72) : color(red: 0.08, green: 0.45, blue: 0.38)
+        let warm = dark ? color(red: 1, green: 0.73, blue: 0.40) : color(red: 0.72, green: 0.36, blue: 0.07)
+        func paintBrandBlock(_ x: Int, _ y: Int, _ width: Int, _ height: Int, _ tint: CGColor) {
+            context.setFillColor(tint)
+            context.fill(CGRect(x: x, y: y, width: width, height: height))
+        }
+        for (index, y) in [644, 476, 308].enumerated() {
+            paintBrandBlock(236, y, 422, 72, track)
+            paintBrandBlock(236, y, [301, 208, 354][index], 72, index == 0 ? accent : ink)
+            paintBrandBlock(716, y, 72, 72, [accent, ink, warm][index])
+        }
+        return context.makeImage()
     }
 
     /// The static tile the charging animation draws beneath its effect raster.
@@ -213,7 +224,8 @@ enum DockIconRenderer {
             regions: IconSceneRegion.all.subtracting(.ringAccessory),
             pixelLength: pixelLength,
             crop: nil,
-            drawsTileBackground: true
+            drawsTileBackground: true,
+            clearsStripForOverlay: scene.statusStrip != nil
         )
     }
 
@@ -230,6 +242,12 @@ enum DockIconRenderer {
         guard pixelLength > 0, pixelLength <= pixelSize,
               let ring = scene.outerRing, ring.effect != nil
         else { return nil }
+
+        if scene.statusStrip != nil {
+            let scale = CGFloat(pixelLength) / DockIconGlyphLayout.designLength
+            return CGRect(x: stripBounds.minX * scale, y: 425 * scale,
+                          width: stripBounds.width * scale, height: 350 * scale).integral
+        }
 
         let margin = chargingEffectInkMargin(strokeScale: ring.strokeScale)
         let ink = StatusIconGeometry.batteryTrack()
@@ -295,9 +313,12 @@ enum DockIconRenderer {
             regions: [.ringEffect, .ringAccessory],
             pixelLength: pixelLength,
             crop: crop,
-            drawsTileBackground: false
+            drawsTileBackground: scene.statusStrip != nil
         )
     }
+
+    private static let stripBounds = CGRect(x: 143, y: 143, width: 738, height: 738)
+    static var statusStripTileFraction: CGFloat { stripBounds.width / DockIconGlyphLayout.designLength }
 
     /// Renders `regions` in the tile's own space, optionally cropped to `crop`
     /// (tile pixels, bottom-left origin). A crop produces a bitmap that is
@@ -310,7 +331,8 @@ enum DockIconRenderer {
         pixelLength: Int,
         crop: CGRect?,
         drawsTileBackground: Bool,
-        body: TileBody = .rounded
+        body: TileBody = .rounded,
+        clearsStripForOverlay: Bool = false
     ) -> CGImage? {
         let maximumPixelLength = body == .square ? appIconArtworkPixelSize : pixelSize
         guard pixelLength > 0, pixelLength <= maximumPixelLength else { return nil }
@@ -356,6 +378,19 @@ enum DockIconRenderer {
                     height: DockIconGlyphLayout.designLength
                 ))
             }
+        }
+
+        if scene.statusStrip != nil {
+            if clearsStripForOverlay, let cutout = chargingEffectRect(scene: scene, pixelLength: pixelLength) {
+                StatusStripRenderer.draw(scene: scene, bounds: stripBounds, in: context,
+                                         dark: backgroundStyle == .dark, phase: nil, dock: true)
+                let inverse = DockIconGlyphLayout.designLength / tileLength
+                context.clear(cutout.applying(CGAffineTransform(scaleX: inverse, y: inverse)))
+                return context.makeImage()
+            }
+            StatusStripRenderer.draw(scene: scene, bounds: stripBounds, in: context,
+                                     dark: backgroundStyle == .dark, phase: phase, dock: true)
+            return context.makeImage()
         }
 
         context.saveGState()

@@ -82,6 +82,11 @@ extension SettingsStore {
                 hardwareUploadCapMbps: appearance.hardwareUploadCapMbps
             )
         }
+        .combineLatest($statusStripLayout) { settings, layout in
+            var settings = settings
+            settings.statusStripLayout = layout
+            return settings
+        }
         .removeDuplicates()
         .eraseToAnyPublisher()
     }

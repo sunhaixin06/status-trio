@@ -149,19 +149,22 @@ enum HardwareRingMapper {
         levels: [HardwareMonitorMetric: HardwareLoadLevel],
         metricColors: [HardwareMonitorMetric: IconRGBA],
         speedCapsMbps: [HardwareMonitorMetric: Double],
+        auxiliarySamples: [HardwareMonitorMetric: HardwareMetricSample] = [:],
         now: Date,
         style: VolumeDisplayStyle,
         strokeScale: Double
     ) -> FooterState? {
         let options = configuration.options(for: metric)
-        let sample = sample(for: metric, in: snapshot, auxiliary: [:])
+        let sample = sample(for: metric, in: snapshot, auxiliary: auxiliarySamples)
         let capMbps = speedCapsMbps[metric]
         guard let progress = progress(metric: metric, sample: sample, options: options,
-                                      capMbps: capMbps, now: now) else {
+                                      capMbps: capMbps, now: now),
+              let value = sample.value else {
             return nil
         }
+        let reading = footerReading(value, unit: sample.unit)
         if metric == .batteryLevel {
-            return footerBar(progress: progress, color: .primary, style: style, strokeScale: strokeScale)
+            return footerBar(progress: progress, color: .primary, style: style, strokeScale: strokeScale, reading: reading)
         }
         let level: HardwareLoadLevel = metric.usesStatusSnapshot
             ? .normal
@@ -172,20 +175,32 @@ enum HardwareRingMapper {
                                  monochrome: configuration.color.monochrome,
                                  thresholdColors: configuration.color.thresholdColors,
                                  baseColor: baseColor)
-        return footerBar(progress: progress, color: color, style: style, strokeScale: strokeScale)
+        return footerBar(progress: progress, color: color, style: style, strokeScale: strokeScale, reading: reading)
     }
 
-    private static func footerBar(progress: Double, color: IconColorRole,
-                               style: VolumeDisplayStyle, strokeScale: Double) -> FooterState {
+    static func footerReading(_ value: Double, unit: HardwareMetricUnit) -> String {
+        let compact = formattedValue(value, unit: unit)
+        switch unit {
+        case .percent: return compact + "%"
+        case .celsius: return compact + "C"
+        case .rpm: return compact + " rpm"
+        case .bytesPerSecond: return compact + "/s"
+        case .none: return compact
+        }
+    }
+
+    static func footerBar(progress: Double, color: IconColorRole,
+                          style: VolumeDisplayStyle, strokeScale: Double, reading: String) -> FooterState {
         switch style {
         case .dots:
             return .dots(DotsState(
                 count: 4,
                 activeCount: StatusMappings.volumeSteps(scalar: progress, isMuted: false) ?? 0,
                 color: color,
-                strokeScale: strokeScale))
-        case .arc:
-            return .arc(ArcState(progress: progress, color: color, strokeScale: strokeScale))
+                strokeScale: strokeScale, metricReading: reading))
+        case .arc, .verticalBar:
+            return .arc(ArcState(progress: progress, color: color, strokeScale: strokeScale,
+                                 isVertical: style == .verticalBar, metricReading: reading))
         }
     }
 

@@ -262,6 +262,16 @@ def cache_identity(root: Path, arch: str, minimum_macos: str) -> dict[str, objec
     for name in TOOL_COMMANDS:
         tool_paths[name] = output(["sh", "-c", f"command -v {name}"] ) if name != "sh" else "/bin/sh"
 
+    toolchain_source = os.environ.get("MOBILE_BATTERY_TOOLCHAIN_SOURCE", "homebrew")
+    if toolchain_source not in ("homebrew", "local"):
+        raise CacheError("MOBILE_BATTERY_TOOLCHAIN_SOURCE must be homebrew or local")
+    # Local builds can supply the same tools through PATH without a package
+    # manager. The provenance tag prevents mixing their caches with release CI.
+    toolchain_metadata = (
+        {"brew": {formula: brew_version(formula) for formula in TOOL_FORMULAE}}
+        if toolchain_source == "homebrew" else {"source": "local"}
+    )
+
     scripts = {}
     for relative in BUILD_SCRIPTS:
         path = root / relative
@@ -297,9 +307,7 @@ def cache_identity(root: Path, arch: str, minimum_macos: str) -> dict[str, objec
             "imobiledeviceOpenSSL": "enabled",
         },
         "tools": {
-            "brew": {
-                formula: brew_version(formula) for formula in TOOL_FORMULAE
-            },
+            **toolchain_metadata,
             "commands": {
                 name: {
                     "path": path,

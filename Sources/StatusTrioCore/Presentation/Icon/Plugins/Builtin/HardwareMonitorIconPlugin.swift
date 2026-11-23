@@ -21,6 +21,7 @@ struct HardwareMonitorIconPlugin: IconContentPlugin {
                 levels: context.inputs.sources.hardwareRingLevels,
                 metricColors: context.inputs.sources.hardwareMetricColors,
                 speedCapsMbps: context.inputs.sources.hardwareSpeedCapsMbps,
+                auxiliarySamples: Self.auxiliarySamples(from: context.inputs.system.snapshot, now: context.now),
                 now: context.now,
                 style: context.inputs.system.bottomIndicatorStyle,
                 strokeScale: context.legacy.volume.ringStrokeScale
@@ -95,11 +96,12 @@ struct HardwareMonitorIconPlugin: IconContentPlugin {
     /// Turns the general status snapshot into samples for the top-marker-only
     /// metrics. Freshness is "now" because this is rebuilt on every icon tick
     /// (any volume/Wi-Fi change re-triggers icon resolution).
-    private static func auxiliarySamples(from snapshot: StatusSnapshot, now: Date) -> [HardwareMonitorMetric: HardwareMetricSample] {
+    static func auxiliarySamples(from snapshot: StatusSnapshot, now: Date) -> [HardwareMonitorMetric: HardwareMetricSample] {
         var samples: [HardwareMonitorMetric: HardwareMetricSample] = [:]
 
-        let volumePercent: Double? = snapshot.volume.scalar.map { scalar in
-            min(100, max(0, (scalar * 100).rounded()))
+        let volumePercent: Double? = snapshot.volume.scalar.flatMap { scalar in
+            guard scalar.isFinite else { return nil }
+            return snapshot.volume.isMuted ? 0 : min(100, max(0, (scalar * 100).rounded()))
         }
         samples[.volume] = HardwareMetricSample(
             value: volumePercent,
@@ -122,7 +124,7 @@ struct HardwareMonitorIconPlugin: IconContentPlugin {
         )
 
         let battery = snapshot.battery
-        let batteryPercent: Double? = battery.isPresent ? Double(battery.percentage) : nil
+        let batteryPercent = battery.isPresent ? battery.rawPercentage.map { _ in Double(battery.percentage) } : nil
         samples[.batteryLevel] = HardwareMetricSample(
             value: batteryPercent,
             unit: .percent,

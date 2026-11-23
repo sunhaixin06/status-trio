@@ -17,6 +17,7 @@ private enum BluetoothDemandSource: Hashable {
     case popover
     case settings
     case selectedDeviceIcon
+    case airPodsIcon
     case backgroundRefresh
     case audioListeningModes
     case legacyToggle
@@ -337,6 +338,9 @@ final class SystemStatusStore: ObservableObject {
     private var isReconcilingBluetoothDemand = false
     private var needsBluetoothDemandReconciliation = false
     private var appliedBluetoothDemandSources: Set<BluetoothDemandSource> = []
+    private var usesAirPodsIcon = false
+    private var selectedAirPodsIconAddress: String?
+    private(set) var airPodsIconBatteryClaimed = false
     private var bluetoothProfilerReaderToken: BluetoothProfilerReportCache.ReaderToken?
     /// Whether the wired link panel is the open detail panel. The controller
     /// itself follows the connection; this only records that the panel is on
@@ -789,6 +793,9 @@ final class SystemStatusStore: ObservableObject {
         wifiNetworks.deactivate()
         primaryLink.deactivate()
         localIP.deactivate()
+        bluetoothDevices.releaseBackgroundBatteryLevels(IconSourceDemandBridge.batteryLevelsToken)
+        bluetoothDevices.releaseActivation(IconSourceDemandBridge.batteryLevelsToken)
+        airPodsIconBatteryClaimed = false
         bluetoothDevices.releaseTransientState()
         releaseBluetoothProfilerReader()
         bluetoothListeningModes.shutdown()
@@ -1048,6 +1055,28 @@ final class SystemStatusStore: ObservableObject {
             }
             .store(in: &bluetoothSettingsCancellables)
 
+        settings.iconPresentationPublisher
+            .map { IconSourceDemandPolicy.requiresAirPodsBattery(in: $0.iconConfiguration, bindings: $0.slotBindings) }
+            .removeDuplicates()
+            .combineLatest(settings.$_airPodsIconDeviceAddress.removeDuplicates())
+            .sink { [weak self] usesAirPods, address in
+                guard let self else { return }
+                self.usesAirPodsIcon = usesAirPods
+                self.selectedAirPodsIconAddress = address
+                self.reconcileBluetoothDemand()
+            }
+            .store(in: &bluetoothSettingsCancellables)
+
+        bluetoothDevices.$devices
+            .dropFirst()
+            .removeDuplicates()
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] _ in
+                guard let self, self.usesAirPodsIcon else { return }
+                self.reconcileBluetoothDemand()
+            }
+            .store(in: &bluetoothSettingsCancellables)
+
         updateVolumeDetailsAfterSettingsChange(
             previouslyNeeded: previouslyNeededVolumeDetails
         )
@@ -1083,6 +1112,7 @@ final class SystemStatusStore: ObservableObject {
                bluetoothSettingsSnapshot.bluetoothNetworkIconDeviceAddress?.isEmpty == false {
                 sources.insert(.selectedDeviceIcon)
             }
+            if usesAirPodsIcon { sources.insert(.airPodsIcon) }
             let backgroundEligible = bluetoothSettingsSnapshot.showsAppleDevicesAndBattery
                 && bluetoothSettingsSnapshot.showsBluetoothBatteryLevels
                 && bluetoothSettingsSnapshot.showsBluetoothDeviceList
@@ -1164,6 +1194,19 @@ final class SystemStatusStore: ObservableObject {
             && !sources.isEmpty
             && (canActivateWithoutExplicitIntent || explicitActivation)
 
+        let iconToken = IconSourceDemandBridge.batteryLevelsToken
+        let needsIconMonitor = shouldRead && canActivateWithoutExplicitIntent
+            && (sources.contains(.airPodsIcon) || sources.contains(.selectedDeviceIcon))
+        let needsAirPodsBattery = needsIconMonitor && sources.contains(.airPodsIcon)
+            && bluetoothSettingsSnapshot.refreshesAppleBatteriesInBackground
+            && AirPodsBatteryIconSnapshot.hasConnectedSelection(
+                devices: bluetoothDevices.devices, selectedAddress: selectedAirPodsIconAddress)
+        if !needsAirPodsBattery && airPodsIconBatteryClaimed {
+            airPodsIconBatteryClaimed = false
+            bluetoothDevices.releaseBackgroundBatteryLevels(iconToken)
+        }
+        if !needsIconMonitor { bluetoothDevices.releaseActivation(iconToken) }
+
         if shouldRead {
             if !bluetoothDevices.isActive {
                 acquireBluetoothProfilerReader()
@@ -1175,6 +1218,13 @@ final class SystemStatusStore: ObservableObject {
                 // panel opened while a background or Settings demand is already
                 // active needs an explicit fresh read.
                 bluetoothDevices.refresh()
+            }
+            if needsIconMonitor {
+                bluetoothDevices.requestActivation(iconToken)
+                if needsAirPodsBattery && !airPodsIconBatteryClaimed {
+                    airPodsIconBatteryClaimed = true
+                    bluetoothDevices.requestBackgroundBatteryLevels(iconToken)
+                }
             }
             if explicitAuthorizationRequest,
                bluetoothDevices.authorization != .notDetermined {

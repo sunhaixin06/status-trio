@@ -201,11 +201,7 @@ struct ChargingEffectFrameCacheTests {
         // The expected raster uses the same opaque ink contract as the live
         // menu bar, independently of labelColor's accessibility alpha.
         let foreground = CGColor(gray: 1, alpha: 1)
-        var criticalColor = CGColor(red: 1, green: 59.0 / 255.0, blue: 48.0 / 255.0, alpha: 1)
-        appearance.performAsCurrentDrawingAppearance {
-            criticalColor = NSColor.systemRed.usingColorSpace(.deviceRGB)?.cgColor
-                ?? criticalColor
-        }
+        let palette = BatteryStatusColorPalette.resolved(appearance: appearance)
 
         let scene = makeIconPresentationScene(status: status)
         let preRendered = try #require(StatusIconRenderer.preRenderedMenuBarImage(
@@ -242,7 +238,8 @@ struct ChargingEffectFrameCacheTests {
             size: 22,
             scale: 2,
             foreground: foreground,
-            criticalColor: criticalColor,
+            criticalColor: palette.critical,
+            statusPalette: palette,
             // preRenderedMenuBarImage renders the menu-bar path, which now
             // supersamples once before the final pixel grid; the direct reference
             // must use the same environment to compare like with like.

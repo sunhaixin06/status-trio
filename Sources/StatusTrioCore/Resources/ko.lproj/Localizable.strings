@@ -1,4 +1,12 @@
 "menu.version" = "Status Trio %@";
+"statusStrip.layout" = "상태 레이아웃";
+"statusStrip.divider" = "얇은 구분선";
+"statusStrip.batteryWordmark" = "배터리 숫자";
+"statusStrip.capsule" = "단일 캡슐";
+"statusStrip.gauge" = "배터리 눈금";
+"statusStrip.unified" = "3칸 캡슐";
+"statusStrip.connection" = "연결 강조";
+"statusStrip.alerts" = "경고 우선";
 "menu.settings" = "설정…";
 "menu.quit" = "Status Trio 종료";
 "menu.about" = "%@ 정보";
@@ -614,19 +622,20 @@
 "settings.wifi.symbolScaleDescription" = "상태 링 내의 Wi-Fi 아이콘 배율을 조절합니다 (100% - 180%).";
 "settings.audio.indicatorStyleTitle" = "음량 표시기 스타일";
 "settings.audio.indicatorStyle" = "표시 스타일";
-"settings.audio.indicatorStyleDescription" = "상태 링 하단에 네 개의 점 또는 연속된 호 모양 막대 중 표시 방식을 선택합니다.";
+"settings.audio.indicatorStyleDescription" = "점 네 개, 가로 막대, 세로 막대 중에서 선택합니다.";
 "settings.audio.indicatorStyle.dots" = "네 개의 점";
-"settings.audio.indicatorStyle.arc" = "호 막대";
+"settings.audio.indicatorStyle.arc" = "가로 막대";
+"settings.audio.indicatorStyle.verticalBar" = "세로 막대";
 "settings.audio.bottomIndicatorTitle" = "하단 표시기";
-"settings.audio.bottomIndicatorDescription" = "아이콘 아래 표시줄에 표시할 내용을 선택합니다. 점 4개 또는 호 스타일은 그대로입니다.";
+"settings.audio.bottomIndicatorDescription" = "마지막 칸에 표시할 내용을 선택합니다.";
 "settings.audio.bottomIndicatorSource" = "하단 표시기 소스";
 "settings.audio.bottomIndicatorSource.volume" = "볼륨";
 "settings.audio.bottomIndicatorSource.wifi" = "Wi-Fi";
 "settings.audio.bottomIndicatorSource.battery" = "배터리";
 "settings.audio.bottomIndicatorSource.hidden" = "숨김";
 "settings.audio.bottomIndicatorSource.metric" = "사용자화";
-"settings.audio.bottomIndicatorMetric" = "사용자화";
-"settings.audio.bottomIndicatorMetricDescription" = "막대에 표시할 하드웨어 지표를 선택합니다. 4개 점 또는 호 스타일은 그대로입니다.";
+"settings.audio.bottomIndicatorMetric" = "하드웨어 지표";
+"settings.audio.bottomIndicatorMetricDescription" = "마지막 칸에 선택한 지표와 현재 값, 게이지를 표시합니다.";
 "settings.audio.airPodsInlineControlsTitle" = "헤드폰 제어";
 "settings.audio.airPodsInlineControls" = "볼륨 패널에 AirPods 제어 표시";
 "settings.audio.airPodsInlineControlsDescription" = "AirPods 출력 옆에 대화 인식, 공간 오디오, 적응형 제어를 표시합니다. 비공개 API 기반의 이러한 제어를 숨기려면 끕니다.";
@@ -736,6 +745,7 @@
 "settings.appleDevicesAndBattery.description" = "신뢰된 Apple 기기와 이름이 있는 주변 기기를 Bluetooth 목록에 표시합니다.";
 "settings.appleBackgroundRefresh" = "백그라운드에서 Apple 배터리 업데이트";
 "settings.appleBackgroundRefresh.description" = "상태 패널이 닫혀 있어도 선택한 Apple 기기의 배터리를 업데이트합니다.";
+"settings.ringContent.airPodsBackground.description" = "상태 패널이 닫혀 있어도 AirPods 배터리를 업데이트합니다.";
 "settings.appleBackgroundRefresh.interval" = "백그라운드 배터리 잔량 업데이트 간격";
 "settings.appleBackgroundRefresh.intervalValue" = "%d분";
 

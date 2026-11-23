@@ -1,4 +1,12 @@
 "menu.version" = "Status Trio %@";
+"statusStrip.layout" = "ステータス配置";
+"statusStrip.divider" = "細い区切り";
+"statusStrip.batteryWordmark" = "バッテリー文字";
+"statusStrip.capsule" = "単一カプセル";
+"statusStrip.gauge" = "電池ゲージ";
+"statusStrip.unified" = "3分割";
+"statusStrip.connection" = "接続を強調";
+"statusStrip.alerts" = "警告優先";
 "menu.settings" = "設定…";
 "menu.quit" = "Status Trioを終了";
 "menu.about" = "%@ について";
@@ -614,19 +622,20 @@
 "settings.wifi.symbolScaleDescription" = "ステータスリング内の Wi-Fi アイコンのスケールを調整します（100%〜180%）。";
 "settings.audio.indicatorStyleTitle" = "音量インジケータスタイル";
 "settings.audio.indicatorStyle" = "表示スタイル";
-"settings.audio.indicatorStyleDescription" = "ステータスリング下部に4つのドットまたは連続する円弧バーのいずれで表示するかを選択します。";
+"settings.audio.indicatorStyleDescription" = "4つのドット、横バー、縦バーから選びます。";
 "settings.audio.indicatorStyle.dots" = "4つのドット";
-"settings.audio.indicatorStyle.arc" = "円弧バー";
+"settings.audio.indicatorStyle.arc" = "横バー";
+"settings.audio.indicatorStyle.verticalBar" = "縦バー";
 "settings.audio.bottomIndicatorTitle" = "下部インジケーター";
-"settings.audio.bottomIndicatorDescription" = "アイコン下のバーに表示する内容を選択します。4 ドットまたは円弧のスタイルは変わりません。";
+"settings.audio.bottomIndicatorDescription" = "最後の欄に表示する内容を選択します。";
 "settings.audio.bottomIndicatorSource" = "下部インジケーターのソース";
 "settings.audio.bottomIndicatorSource.volume" = "音量";
 "settings.audio.bottomIndicatorSource.wifi" = "Wi-Fi";
 "settings.audio.bottomIndicatorSource.battery" = "バッテリー";
 "settings.audio.bottomIndicatorSource.hidden" = "非表示";
 "settings.audio.bottomIndicatorSource.metric" = "カスタム";
-"settings.audio.bottomIndicatorMetric" = "カスタム";
-"settings.audio.bottomIndicatorMetricDescription" = "バーに表示するハードウェア指標を選択します。4 ドットまたは円弧のスタイルは変わりません。";
+"settings.audio.bottomIndicatorMetric" = "ハードウェア指標";
+"settings.audio.bottomIndicatorMetricDescription" = "最後の欄に選んだ指標の現在値とゲージを表示します。";
 "settings.audio.airPodsInlineControlsTitle" = "ヘッドフォンコントロール";
 "settings.audio.airPodsInlineControls" = "音量パネルに AirPods コントロールを表示";
 "settings.audio.airPodsInlineControlsDescription" = "AirPods 出力の横に会話認識・空間オーディオ・アダプティブのコントロールを表示します。私的 API ベースのこれらのコントロールを隠すにはオフにします。";
@@ -736,6 +745,7 @@
 "settings.appleDevicesAndBattery.description" = "信頼済みの Apple デバイスと近くの名前付きデバイスを Bluetooth リストに表示します。";
 "settings.appleBackgroundRefresh" = "Apple デバイスのバッテリーをバックグラウンドで更新";
 "settings.appleBackgroundRefresh.description" = "ステータスパネルを閉じている間も、選択した Apple デバイスの電池残量を更新します。";
+"settings.ringContent.airPodsBackground.description" = "ステータスパネルを閉じている間も AirPods の電池残量を更新します。";
 "settings.appleBackgroundRefresh.interval" = "バックグラウンドでのバッテリー残量更新間隔";
 "settings.appleBackgroundRefresh.intervalValue" = "%d 分";
 

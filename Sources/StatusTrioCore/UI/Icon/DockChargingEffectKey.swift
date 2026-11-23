@@ -5,11 +5,13 @@ struct DockChargingEffectKey: Equatable {
     let statusColors: BatteryStatusColors
     let backgroundStyle: DockIconBackgroundStyle
     let pixelLength: Int
+    let stripScene: IconSceneState?
 
     init(_ key: DockIconRenderKey) {
         outerRing = key.scene.outerRing
         statusColors = key.scene.statusColors
         backgroundStyle = key.backgroundStyle
         pixelLength = key.pixelLength
+        stripScene = key.scene.statusStrip == nil ? nil : key.scene
     }
 }

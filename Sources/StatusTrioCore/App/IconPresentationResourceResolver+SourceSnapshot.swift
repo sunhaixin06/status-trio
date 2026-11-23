@@ -14,6 +14,7 @@ extension IconPresentationResourceResolver {
         selectedAirPodsAddress: String? = nil,
         selectedConnectedDeviceAddress: String? = nil,
         bluetoothAvailability: BluetoothAvailability? = nil,
+        holdsAirPodsReading: Bool = false,
         now: Date = .now
     ) -> IconSourceSnapshot {
         let networkAvailability: IconSourceAvailability
@@ -52,18 +53,23 @@ extension IconPresentationResourceResolver {
         )
         let airPodsBattery: AirPodsBatteryIconSnapshot?
         let airPodsAvailability: IconSourceAvailability
-        switch airPodsSelection {
-        case let .selected(value):
-            let age = now.timeIntervalSince(value.observedAt)
-            let isFresh = (0...AirPodsBatteryIconSnapshot.freshnessInterval).contains(age)
-            airPodsBattery = isFresh ? value : nil
-            airPodsAvailability = isFresh ? .available : .unavailable(.temporarilyStale)
-        case .needsSelection:
+        if bluetoothAvailability == .authorizationDenied || bluetoothAvailability == .authorizationRestricted {
             airPodsBattery = nil
-            airPodsAvailability = .unavailable(.unknown)
-        case let .unavailable(reason):
-            airPodsBattery = nil
-            airPodsAvailability = .unavailable(reason)
+            airPodsAvailability = .unavailable(.permissionDenied)
+        } else {
+            switch airPodsSelection {
+            case let .selected(value):
+                let age = now.timeIntervalSince(value.observedAt)
+                let isUsable = age >= 0 && (holdsAirPodsReading || age <= AirPodsBatteryIconSnapshot.freshnessInterval)
+                airPodsBattery = isUsable ? value : nil
+                airPodsAvailability = isUsable ? .available : .unavailable(.temporarilyStale)
+            case .needsSelection:
+                airPodsBattery = nil
+                airPodsAvailability = .unavailable(.unknown)
+            case let .unavailable(reason):
+                airPodsBattery = nil
+                airPodsAvailability = .unavailable(reason)
+            }
         }
 
         let selectedConnectedKey = selectedConnectedDeviceAddress.map { BluetoothBatteryReader.normalizedAddress($0) }
@@ -108,6 +114,8 @@ extension IconPresentationResourceResolver {
             RingSource.airPodsBattery.rawValue: airPodsAvailability,
             FooterSource.systemVolume.rawValue: volumeAvailability
         ], airPodsBattery: airPodsBattery, connectedBluetoothDeviceSymbol: connectedDeviceSymbol,
-           connectedBluetoothDeviceIsAudio: connectedDeviceIsAudio)
+           connectedBluetoothDeviceIsAudio: connectedDeviceIsAudio,
+           hasSelectedConnectedBluetoothDevice: selectedConnectedKey?.isEmpty == false,
+           holdingSourceIDs: holdsAirPodsReading && airPodsBattery != nil ? [RingSource.airPodsBattery.rawValue] : [])
     }
 }

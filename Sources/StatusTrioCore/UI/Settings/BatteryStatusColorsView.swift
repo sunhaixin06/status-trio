@@ -57,11 +57,9 @@ private struct BatteryStatusColorRow: View {
         let light = resolution(dark: false)
         let dark = resolution(dark: true)
         VStack(alignment: .leading, spacing: 0) {
-            SettingsRow(
-                symbol,
-                tint: Color(cgColor: (colorScheme == .dark ? dark : light).color),
-                title: title
-            ) {
+            SettingsRow(title: title) {
+                stateBadge(color: Color(cgColor: (colorScheme == .dark ? dark : light).color))
+            } trailing: {
                 HStack(spacing: 8) {
                     systemSwatch
                     ForEach(BatteryStatusColorPreset.allCases, id: \.self) { preset in
@@ -111,6 +109,19 @@ private struct BatteryStatusColorRow: View {
             .padding(.trailing, SettingsMetrics.rowPaddingH)
             .padding(.bottom, SettingsMetrics.rowPaddingV)
         }
+    }
+
+    private func stateBadge(color: Color) -> some View {
+        let size = SettingsMetrics.iconSize
+        return RoundedRectangle(cornerRadius: size * 0.25, style: .continuous)
+            .fill(color.opacity(colorScheme == .dark ? 0.16 : 0.10))
+            .frame(width: size, height: size)
+            .overlay {
+                Image(systemName: SymbolFallback.name(symbol, "questionmark.circle"))
+                    .font(.system(size: size * 0.52, weight: .semibold))
+                    .foregroundStyle(color)
+            }
+            .accessibilityHidden(true)
     }
 
     /// A swatch for the system semantic colour; selecting it clears any override.
@@ -182,7 +193,7 @@ private struct BatteryStatusColorRow: View {
         case .discharging: return "battery.75percent"
         case .charging: return "bolt.fill"
         case .lowPower: return "leaf.fill"
-        case .highPower: return "bolt.batteryblock.fill"
+        case .highPower: return "speedometer"
         case .critical: return "exclamationmark.triangle.fill"
         }
     }
@@ -210,16 +221,11 @@ private struct BatteryStatusColorRow: View {
 
     private func referencePreview(_ resolved: BatteryStatusColorResolution, dark: Bool) -> some View {
         HStack(spacing: 7) {
-            ZStack {
-                Circle()
-                    .trim(from: 0.08, to: 0.92)
-                    .stroke((dark ? Color.white : Color.black).opacity(0.22), style: StrokeStyle(lineWidth: 3, lineCap: .round))
-                Circle()
-                    .trim(from: 0.08, to: 0.72)
-                    .stroke(Color(cgColor: resolved.color), style: StrokeStyle(lineWidth: 3, lineCap: .round))
+            ZStack(alignment: .leading) {
+                Capsule().fill((dark ? Color.white : Color.black).opacity(0.22))
+                Capsule().fill(Color(cgColor: resolved.color)).frame(width: 15)
             }
-            .rotationEffect(.degrees(90))
-            .frame(width: 18, height: 18)
+            .frame(width: 22, height: 3)
             .padding(7)
             .background(dark ? Color.black : Color.white, in: RoundedRectangle(cornerRadius: 6))
             .overlay(RoundedRectangle(cornerRadius: 6).strokeBorder(.secondary.opacity(0.25)))

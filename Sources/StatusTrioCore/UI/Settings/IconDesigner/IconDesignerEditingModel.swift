@@ -188,11 +188,11 @@ enum IconDesignerEditingModel {
     static func source(for target: IconDesignerBehaviorTarget, slot: IconSlot, in configuration: IconConfigurationV1) -> IconDesignerSource? {
         switch (slot, target) {
         case (.outerRing, .primary): .ring(configuration.composition.outerRing.primary)
-        case (.outerRing, .fallback): configuration.composition.outerRing.fallback.map(IconDesignerSource.ring)
+        case (.outerRing, .fallback): configuration.composition.outerRing.fallback.map { .ring($0) }
         case (.center, .primary): .center(configuration.composition.center.primary)
-        case (.center, .fallback): configuration.composition.center.fallback.map(IconDesignerSource.center)
+        case (.center, .fallback): configuration.composition.center.fallback.map { .center($0) }
         case (.footer, .primary): .footer(configuration.composition.footer.primary)
-        case (.footer, .fallback): configuration.composition.footer.fallback.map(IconDesignerSource.footer)
+        case (.footer, .fallback): configuration.composition.footer.fallback.map { .footer($0) }
         }
     }
 

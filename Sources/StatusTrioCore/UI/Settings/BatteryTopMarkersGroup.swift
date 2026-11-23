@@ -54,7 +54,7 @@ struct BatteryTopMarkersGroup: View {
             SettingsDivider()
 
             markerRow(
-                symbol: "powerplug.portrait.fill",
+                symbol: StatusIconGeometry.batteryPlugSymbolName,
                 tint: .teal,
                 title: .settingsBatteryMarkerConnected,
                 selection: $store.batteryConnectedMarker,

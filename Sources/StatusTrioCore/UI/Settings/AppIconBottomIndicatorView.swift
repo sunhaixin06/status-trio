@@ -28,6 +28,17 @@ struct AppIconBottomIndicatorView: View {
                 stylePicker
                 SettingsDivider()
                 metricPicker
+                LiveIconSettingsStatus { output in
+                    let metric = localization.string(store.bottomIndicatorMetric.titleKey)
+                    let reading: String
+                    if output.scene.statusStrip?.footerMetric == store.bottomIndicatorMetric,
+                       let value = output.scene.footer?.metricReading {
+                        reading = value
+                    } else {
+                        reading = localization.string(.iconResolutionUnavailableUnavailable)
+                    }
+                    return "\(metric) · \(reading)"
+                }
                 metricColorRows
                 SettingsDivider()
                 // Mirror the ring's advanced settings for the selected metric.
@@ -255,8 +266,6 @@ struct AppIconBottomIndicatorView: View {
         configuration.color.thresholdColors = on
         store.hardwareRingConfiguration = configuration
     }
-    /// The shared four-dot / arc appearance chooser, kept from the old volume
-    /// indicator so switching the source does not move or restyle this control.
     private var stylePicker: some View {
         SettingsPictureRow(
             "waveform",
@@ -274,12 +283,13 @@ struct AppIconBottomIndicatorView: View {
                     }
                 }
             ),
-            options: [VolumeDisplayStyle.dots, .arc],
+            options: VolumeDisplayStyle.allCases,
             previewSize: CGSize(width: 68, height: 44),
             caption: { style in
                 switch style {
                 case .dots: return localization.string(.settingsAudioIndicatorStyleDots)
                 case .arc: return localization.string(.settingsAudioIndicatorStyleArc)
+                case .verticalBar: return localization.string(.settingsAudioIndicatorStyleVerticalBar)
                 }
             },
             preview: { style in
@@ -375,7 +385,7 @@ private enum BottomIndicatorPreviewScene {
             let scene = BottomIndicatorMetricPreview.scene(
                 metric: metric, style: style, strokeScale: strokeScale,
                 baseColor: baseColor)
-            return StatusIconPreviewCache.shared.image(
+            return StatusIconPreviewCache.shared.stripImage(
                 scene: scene,
                 size: 28,
                 scale: 2,
@@ -394,7 +404,7 @@ private enum BottomIndicatorPreviewScene {
             bottomIndicatorSource: source
         )
         let scene = IconPresentationMapper.scene(inputs: inputs, configuration: configuration)
-        return StatusIconPreviewCache.shared.image(
+        return StatusIconPreviewCache.shared.stripImage(
             scene: scene,
             size: 28,
             scale: 2,

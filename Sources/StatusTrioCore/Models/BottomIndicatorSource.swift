@@ -3,8 +3,8 @@ import Foundation
 /// What the bottom indicator under the status icon reports.
 ///
 /// The data source is deliberately separate from `VolumeDisplayStyle`, which
-/// only controls how the indicator is *drawn* (four dots or a bottom arc).
-/// Every source reuses the same dot/arc artwork; the source decides which
+/// only controls how the indicator is drawn (four dots or a continuous bar).
+/// Every source reuses the same artwork; the source decides which
 /// quantity fills it. Keeping the two axes apart preserves the stored
 /// `volumeDisplayStyle` value and its meaning across upgrades.
 public enum BottomIndicatorSource: String, CaseIterable, Identifiable, Codable, Sendable {

@@ -82,8 +82,9 @@ struct VolumeIndicatorPreview: View {
                 metric: sourceMetric, style: style, strokeScale: store.ringStrokeStyle.scale,
                 baseColor: store.hardwareColor(for: sourceMetric))
         }
-        return IconPreviewScene.make(
-            status: menuBarPreviewStatus(from: statusStore),
+        let snapshot = IconPreviewScene.snapshot(from: menuBarPreviewStatus(from: statusStore))
+        var scene = IconPreviewScene.make(
+            snapshot: snapshot,
             configuration: IconPresentationConfiguration(
                 battery: store.batteryIconOptions,
                 connection: store.connectionIconOptions,
@@ -95,19 +96,28 @@ struct VolumeIndicatorPreview: View {
             ),
             bottomIndicatorSource: source
         )
+        scene.statusStrip = StatusStrip(layout: .divider, snapshot: snapshot,
+                                        threshold: Int(store.batteryCriticalThreshold.rounded()),
+                                        showsVolume: source == .volume)
+        return scene
     }
 
     var body: some View {
         ZStack {
             MenuBarPreviewBackdrop(isDarkBackground: isDarkBackground)
 
-            Image(nsImage: StatusIconPreviewCache.shared.image(
+            if let appearance = MenuBarPreviewBackdrop.appearance(isDarkBackground: isDarkBackground),
+               let image = StatusStripRenderer.indicatorImage(
                 scene: previewScene,
-                size: 28,
                 scale: NSScreen.main?.backingScaleFactor ?? 2,
-                appearance: MenuBarPreviewBackdrop.appearance(isDarkBackground: isDarkBackground)
-            ) ?? NSImage(size: NSSize(width: 28, height: 28)))
-            .accessibilityHidden(true)
+                appearance: appearance
+            ) {
+                Image(nsImage: image)
+                    .resizable()
+                    .scaledToFit()
+                    .frame(width: 54)
+                    .accessibilityHidden(true)
+            }
         }
     }
 }
@@ -304,12 +314,15 @@ struct RingStrokeStylePreview: View {
         ZStack {
             MenuBarPreviewBackdrop(isDarkBackground: isDarkBackground)
 
-            Image(nsImage: StatusIconPreviewCache.shared.image(
+            Image(nsImage: StatusIconPreviewCache.shared.stripImage(
                 scene: previewScene,
                 size: 28,
                 scale: NSScreen.main?.backingScaleFactor ?? 2,
                 appearance: MenuBarPreviewBackdrop.appearance(isDarkBackground: isDarkBackground)
             ) ?? NSImage(size: NSSize(width: 28, height: 28)))
+            .resizable()
+            .scaledToFit()
+            .padding(.horizontal, 5)
             .accessibilityHidden(true)
         }
     }

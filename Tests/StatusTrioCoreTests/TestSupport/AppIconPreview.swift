@@ -51,13 +51,7 @@ enum AppIconPreview {
         )
         context.clear(CGRect(x: 0, y: 0, width: canvasSize, height: canvasSize))
 
-        guard let artwork = DockIconRenderer.appIconArtwork(
-            scene: dockScene(
-                status: state.status,
-                bluetoothAudioOptions: state.bluetoothAudioOptions
-            ),
-            backgroundStyle: backgroundStyle
-        ) else {
+        guard let artwork = DockIconRenderer.appIconArtwork(backgroundStyle: backgroundStyle) else {
             throw PreviewError.iconUnavailable
         }
 
@@ -71,16 +65,7 @@ enum AppIconPreview {
         let context = try SheetCanvas.makeContext(width: canvasSize, height: canvasSize, scale: 1)
         context.clear(CGRect(x: 0, y: 0, width: canvasSize, height: canvasSize))
 
-        guard let image = renderDockFixture(
-                status: state.status,
-            bluetoothAudioOptions: state.bluetoothAudioOptions,
-            backgroundStyle: state.backgroundStyle
-        ) else {
-            throw PreviewError.iconUnavailable
-        }
-
-        var proposed = CGRect(origin: .zero, size: image.size)
-        guard let tile = image.cgImage(forProposedRect: &proposed, context: nil, hints: nil) else {
+        guard let tile = DockIconRenderer.appIconArtwork(backgroundStyle: .dark, rounded: true) else {
             throw PreviewError.iconUnavailable
         }
 

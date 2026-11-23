@@ -86,6 +86,13 @@ final class StatusIconPreviewCache {
         residentBytes = 0
     }
 
+    func stripImage(scene: IconSceneState, size: CGFloat, scale: CGFloat,
+                    appearance: NSAppearance? = nil, phase: ChargingEffectPhase? = nil) -> NSImage? {
+        var scene = scene
+        if scene.statusStrip == nil { scene.statusStrip = StatusStrip(layout: .unified, previewScene: scene) }
+        return image(scene: scene, size: size, scale: scale, appearance: appearance, phase: phase)
+    }
+
     /// Renders the scene into an `NSBitmapImageRep` so later draws never re-enter
     /// the drawing handler that `StatusIconRenderer.image` would install.
     private static func rasterize(
@@ -95,6 +102,10 @@ final class StatusIconPreviewCache {
         appearance: NSAppearance?,
         phase: ChargingEffectPhase?
     ) -> NSImage? {
+        if scene.statusStrip != nil {
+            return StatusStripRenderer.image(scene: scene, size: size, scale: scale,
+                                             appearance: appearance ?? NSAppearance.currentDrawing(), phase: phase)
+        }
         let environment = StatusIconRenderer.renderEnvironment(
             size: size,
             scale: scale,

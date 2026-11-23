@@ -65,6 +65,7 @@ struct ChargingStatusCenterSourceTests {
         _ scene: IconSceneState,
         regions: IconSceneRegion = .all,
         foreground: CGColor? = nil,
+        statusPalette: BatteryStatusColorPalette? = nil,
         phase: ChargingEffectPhase? = nil
     ) throws -> PixelBuffer {
         let image = try #require(StatusIconRenderer.render(
@@ -73,7 +74,8 @@ struct ChargingStatusCenterSourceTests {
                 size: size,
                 scale: scale,
                 foreground: foreground ?? white,
-                criticalColor: CGColor(red: 1, green: 0.23, blue: 0.19, alpha: 1)
+                criticalColor: CGColor(red: 1, green: 0.23, blue: 0.19, alpha: 1),
+                statusPalette: statusPalette
             ),
             phase: phase,
             regions: regions
@@ -233,7 +235,11 @@ struct ChargingStatusCenterSourceTests {
             snapshot(battery(76, charging: true, charged: false, connected: true)),
             batteryOptions: BatteryIconOptions(showsPercentage: false)
         )
-        let rendered = try pixels(scene)
+        // Keep the original semantic green so this fingerprint continues to
+        // detect geometry changes independently of the DIY palette.
+        let appearance = try #require(NSAppearance(named: .darkAqua))
+        let palette = BatteryStatusColorPalette.resolved(appearance: appearance, increasedContrast: true)
+        let rendered = try pixels(scene, statusPalette: palette)
         let fingerprint = SHA256.hash(data: Data(rendered.bytes))
             .map { String(format: "%02x", $0) }
             .joined()

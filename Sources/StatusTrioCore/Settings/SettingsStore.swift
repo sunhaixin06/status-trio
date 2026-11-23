@@ -65,6 +65,7 @@ final class SettingsStore: ObservableObject {
     static let iconSizeRange: ClosedRange<Double> = 16...36
     static let defaultIconSize: Double = 24
     static let iconSizeDefaultsKey = "menuBarIconSize"
+    static let statusStripLayoutDefaultsKey = "statusStripLayout"
 
     static let batteryCriticalThresholdRange: ClosedRange<Double> = 0...100
     /// The battery level at which the automation (#246) switches Low Power Mode
@@ -533,6 +534,10 @@ final class SettingsStore: ObservableObject {
                 forKey: Self.panelLevelSliderMatchesBrightnessThicknessDefaultsKey
             )
         }
+    }
+
+    @Published var statusStripLayout: StatusStripLayout {
+        didSet { persist(statusStripLayout.rawValue, forKey: Self.statusStripLayoutDefaultsKey) }
     }
 
     @Published var iconSize: Double {
@@ -2799,6 +2804,8 @@ final class SettingsStore: ObservableObject {
             .flatMap(MenuBarRightClickAction.init(rawValue:))
             ?? .contextMenu
         self.iconSize = Self.clampedIconSize(storedIconSize ?? Self.defaultIconSize)
+        self.statusStripLayout = defaults.string(forKey: Self.statusStripLayoutDefaultsKey)
+            .flatMap(StatusStripLayout.init(rawValue:)) ?? .unified
         // #315 migration inputs: the old two booleans plus the connected choice.
         let legacyShowsPercentage = defaults.object(forKey: Self.showsBatteryPercentageDefaultsKey) as? Bool ?? true
         self.showsBatteryPowerFlow = defaults.object(forKey: Self.showsBatteryPowerFlowDefaultsKey) as? Bool ?? true

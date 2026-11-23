@@ -135,6 +135,22 @@ final class BottomIndicatorSourceTests: XCTestCase {
         XCTAssertEqual(a.progress, 0.6, accuracy: 0.0001)
     }
 
+    func testVerticalStyleUsesTheSameProgressForEachSource() throws {
+        for source in [BottomIndicatorSource.volume, .wifi, .battery, .metric] {
+            func samples(_ style: VolumeDisplayStyle) -> FooterState? {
+                source == .metric ? metricScene(metric: .cpuUsage, value: 42, style: style).footer
+                    : scene(source: source, style: style).footer
+            }
+            guard case let .arc(horizontal)? = samples(.arc), case let .arc(vertical)? = samples(.verticalBar) else {
+                return XCTFail("Expected a continuous meter from \(source)")
+            }
+            XCTAssertFalse(horizontal.isVertical)
+            XCTAssertTrue(vertical.isVertical)
+            XCTAssertEqual(vertical.progress, horizontal.progress)
+            XCTAssertEqual(vertical.color, horizontal.color)
+        }
+    }
+
     func testVolumeSourceKeepsBluetoothColour() {
         let device = bluetoothDevice()
         let volume = VolumeStatus(
@@ -368,11 +384,12 @@ final class BottomIndicatorSourceTests: XCTestCase {
 
     // MARK: Metric source
 
-    private func metricSource(metric: HardwareMonitorMetric, value: Double) -> IconSourceSnapshot {
+    private func metricSource(metric: HardwareMonitorMetric, value: Double,
+                              unit: HardwareMetricUnit = .percent) -> IconSourceSnapshot {
         var source = IconSourceSnapshot.empty
         var snap = HardwareMetricsSnapshot()
         snap.samples[metric.metricID] = HardwareMetricSample(
-            value: value, unit: .percent, sampledAt: Date(),
+            value: value, unit: unit, sampledAt: Date(),
             source: .mach, availability: .measured)
         source.hardwareMetrics = snap
         return source
@@ -381,13 +398,14 @@ final class BottomIndicatorSourceTests: XCTestCase {
     private func metricScene(
         metric: HardwareMonitorMetric,
         value: Double,
-        style: VolumeDisplayStyle = .arc
+        style: VolumeDisplayStyle = .arc,
+        unit: HardwareMetricUnit = .percent
     ) -> IconSceneState {
         IconPresentationMapper.scene(
             inputs: IconPresentationInputs(
                 snapshot: snapshot(),
                 audioIcon: nil,
-                sources: metricSource(metric: metric, value: value),
+                sources: metricSource(metric: metric, value: value, unit: unit),
                 bottomIndicatorSource: .metric,
                 bottomIndicatorMetric: metric
             ),
@@ -472,6 +490,7 @@ final class BottomIndicatorSourceTests: XCTestCase {
             bindings: IconSlotBindingsV1.migrated(from: .classic, bottomIndicatorSource: .metric)
         )
         XCTAssertEqual(resolution.scene.bottomIndicatorSource, .metric)
+        XCTAssertEqual(resolution.scene.footer?.metricReading, "42%")
         switch resolution.scene.footer {
         case let .arc(a)?:
             XCTAssertEqual(a.progress, 0.42, accuracy: 0.001)
@@ -500,6 +519,11 @@ final class BottomIndicatorSourceTests: XCTestCase {
                        "A chosen metric style must survive a relaunch.")
         XCTAssertEqual(SettingsStore(defaults: suite.defaults).volumeDisplayStyle, .dots,
                        "Changing the metric style must not restyle the volume source.")
+    }
+
+    func testTemperatureReadingUsesActualUnitsRatherThanGaugePercent() {
+        let scene = metricScene(metric: .cpuTemperature, value: 68, style: .verticalBar, unit: .celsius)
+        XCTAssertEqual(scene.footer?.metricReading, "68°C")
     }
 
     func testCompositionHonoursMetricArcStyle() {

@@ -391,6 +391,7 @@ enum IconPresentationMapper {
             // The live path renders this through the hardware-monitor footer
             // plugin; this branch keeps the legacy mapper (previews, guide art)
             // consistent when it is handed real hardware samples.
+            let now = Date.now
             return HardwareRingMapper.footerState(
                 metric: inputs.bottomIndicatorMetric,
                 snapshot: inputs.sources.hardwareMetrics,
@@ -398,7 +399,8 @@ enum IconPresentationMapper {
                 levels: inputs.sources.hardwareRingLevels,
                 metricColors: inputs.sources.hardwareMetricColors,
                 speedCapsMbps: inputs.sources.hardwareSpeedCapsMbps,
-                now: .now,
+                auxiliarySamples: HardwareMonitorIconPlugin.auxiliarySamples(from: inputs.snapshot, now: now),
+                now: now,
                 style: options.displayStyle,
                 strokeScale: options.ringStrokeScale
             )
@@ -456,12 +458,12 @@ enum IconPresentationMapper {
                 ? bluetoothColor! : .primary
             return .dots(DotsState(count: 4, activeCount: steps, color: color,
                                    strokeScale: options.ringStrokeScale))
-        case .arc:
+        case .arc, .verticalBar:
             let effectiveProgress = volume.isMuted ? 0 : (finiteScalar ?? 0)
             let color: IconColorRole = (bluetoothColor != nil && effectiveProgress > 0)
                 ? bluetoothColor! : .primary
             return .arc(ArcState(progress: effectiveProgress, color: color,
-                                 strokeScale: options.ringStrokeScale))
+                                 strokeScale: options.ringStrokeScale, isVertical: options.displayStyle == .verticalBar))
         }
     }
 
@@ -504,9 +506,9 @@ enum IconPresentationMapper {
         case .dots:
             return .dots(DotsState(count: 4, activeCount: dotSteps, color: color,
                                    strokeScale: options.ringStrokeScale))
-        case .arc:
+        case .arc, .verticalBar:
             return .arc(ArcState(progress: arcProgress, color: color,
-                                 strokeScale: options.ringStrokeScale))
+                                 strokeScale: options.ringStrokeScale, isVertical: options.displayStyle == .verticalBar))
         }
     }
 }

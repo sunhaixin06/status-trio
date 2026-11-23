@@ -147,6 +147,7 @@ final class StatusBarController: NSObject {
     private let quitAction: () -> Void
     private var appearanceObservations: [NSKeyValueObservation] = []
     private var renderCache = StatusBarRenderCache()
+    private var stripRenderKey: StatusBarRenderKey?
     private let chargingFrameCache = StatusBarChargingFrameCache()
     private let animationLayerPresenter = StatusBarAnimationLayerPresenter()
     private let templateImagePresenter = StatusBarTemplateImagePresenter()
@@ -2029,6 +2030,12 @@ final class StatusBarController: NSObject {
         )
         let backingScale = scaleResolution.scale
         let appearance = appearanceProvider?() ?? button.effectiveAppearance
+        if let strip = scene.statusStrip, !forcesSplitPresentation {
+            presentStrip(strip, scene: scene, button: button, iconSize: iconSize, backingScale: backingScale,
+                         appearance: appearance, phase: scene.outerRing?.effect == nil ? nil : effectivePhase)
+            return
+        }
+        if stripRenderKey != nil { resetStaticPresentation() }
         #if DEBUG
         if let diagnostics = alignmentDiagnostics {
             // One deferred observation per explicit fixture request/presentation;
@@ -2104,6 +2111,54 @@ final class StatusBarController: NSObject {
             return
         }
         presentAnimationPhase(effectivePhase, in: context)
+    }
+
+    private func presentStrip(_ strip: StatusStrip, scene: IconSceneState, button: NSStatusBarButton,
+                              iconSize: CGFloat, backingScale: CGFloat, appearance: NSAppearance,
+                              phase: ChargingEffectPhase?) {
+        if stripRenderKey == nil {
+            resetStaticPresentation()
+            clearAnimationPresentation()
+        }
+        let staticKey = StatusBarRenderKey(scene: scene, iconSize: iconSize, backingScale: backingScale,
+                                           appearanceName: appearance.name.rawValue, phase: nil)
+        let key = StatusBarRenderKey(scene: scene, iconSize: iconSize, backingScale: backingScale,
+                                     appearanceName: appearance.name.rawValue, phase: phase)
+        guard stripRenderKey != key else { return }
+        func frame(_ phase: ChargingEffectPhase?) -> NSImage? {
+            StatusStripRenderer.image(scene: scene, size: iconSize, scale: backingScale,
+                                      appearance: appearance, phase: phase)
+        }
+        if let phase {
+            let size = StatusStripRenderer.imageSize(strip, size: iconSize)
+            let bitmap: CGImage?
+            if phase.kind == .steady {
+                bitmap = chargingFrameCache.image(for: phase, key: staticKey, backingScale: backingScale) { cachedPhase in
+                    frame(cachedPhase)?.cgImage(forProposedRect: nil, context: nil, hints: nil)
+                }
+            } else {
+                bitmap = frame(phase)?.cgImage(forProposedRect: nil, context: nil, hints: nil)
+                renderCounters.overlayRasters += 1
+            }
+            if let bitmap, animationLayerPresenter.display(bitmap, in: button, contentSize: size,
+                                                           backingScale: backingScale) != nil {
+                if !baseIsCustomRaster || button.image?.size != size {
+                    button.image = NSImage(size: size)
+                    renderCounters.buttonImageAssignments += 1
+                }
+                baseIsCustomRaster = true
+                stripRenderKey = key
+                renderCounters.framesPresented += 1
+                return
+            }
+        }
+        guard let image = frame(phase) else { return }
+        clearAnimationPresentation()
+        image.isTemplate = phase == nil && StatusStripRenderer.canUseTemplate(scene)
+        button.image = image
+        baseIsCustomRaster = false
+        stripRenderKey = key
+        renderCounters.buttonImageAssignments += 1
     }
 
     /// The template base. `nil` means the whole static presentation is left as
@@ -2224,6 +2279,7 @@ final class StatusBarController: NSObject {
     }
 
     private func resetStaticPresentation() {
+        stripRenderKey = nil
         renderCache = StatusBarRenderCache()
         templateImagePresenter.clear()
         staticBase = nil

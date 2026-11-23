@@ -136,6 +136,20 @@ final class IconSlotResolverTests: XCTestCase {
         XCTAssertEqual(output.trace.center.primaryFailure, .disconnected)
     }
 
+    @MainActor
+    func testSelectedBluetoothDeviceFallsBackWhenItsPermissionIsDenied() {
+        var configuration = IconConfigurationV1.classic
+        configuration.composition.center = SlotSelection(primary: .connectedBluetoothDevice, fallback: .network)
+        configuration.behaviors.bluetoothAudioCenter.networkIconSymbolOverride = "airpods.pro"
+        let snapshot = Self.connectedSnapshot
+        let blocked = IconPresentationResourceResolver.sourceSnapshot(
+            snapshot: snapshot, selectedConnectedDeviceAddress: "AA:BB:CC:DD:EE:FF",
+            bluetoothAvailability: .authorizationDenied)
+        let output = resolve(snapshot, configuration: configuration, sources: blocked)
+        XCTAssertEqual(output.trace.center.selectedSourceID, CenterSource.network.rawValue)
+        XCTAssertEqual(output.trace.center.primaryFailure, .permissionDenied)
+    }
+
     func testMissingBatteryPercentageUsesNetworkFallback() {
         var configuration = IconConfigurationV1.classic
         configuration.composition.center = SlotSelection(primary: .systemBatteryPercentage, fallback: .network)

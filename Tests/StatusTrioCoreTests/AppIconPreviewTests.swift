@@ -3,7 +3,7 @@ import CryptoKit
 import XCTest
 @testable import StatusTrioCore
 
-/// Writes the 1024px App Icon preview with Bluetooth-colored volume dots:
+/// Writes the 1024px linear-meter app icon preview:
 ///
 /// ```bash
 /// STATUS_TRIO_APP_ICON_PREVIEW=/tmp/status-trio-app-icon-preview.png \
@@ -35,36 +35,14 @@ final class AppIconPreviewTests: XCTestCase {
     // so its exact rendered pair is recorded alongside the local pair. Every
     // entry still pins the decoded pixels; a deliberate artwork change fails.
     private static let approvedArtworkFingerprints: [String: Set<ArtworkFingerprint>] = [
-        "AppIcon-light.png": [
-            ArtworkFingerprint(
-                committed: "9baf1717eded52a1253362e1d7d10f288109c3c6d7f11a145b67dabff2cf5981",
-                rendered: "9baf1717eded52a1253362e1d7d10f288109c3c6d7f11a145b67dabff2cf5981"
-            ),
-            ArtworkFingerprint(
-                committed: "9baf1717eded52a1253362e1d7d10f288109c3c6d7f11a145b67dabff2cf5981",
-                rendered: "3b2f6ba5835c645e88e9238d0adec31bbfd1232e92991fe3fdc907a496ef6aa7"
-            ),
-            // macOS 27.2 (26B123) 1x runner render recorded 2026-11-20.
-            ArtworkFingerprint(
-                committed: "9baf1717eded52a1253362e1d7d10f288109c3c6d7f11a145b67dabff2cf5981",
-                rendered: "f7b1fd008abeb162ce8e60a507207548711956c4a56d51f77eb823828c5f1f4b"
-            )
-        ],
-        "AppIcon-dark.png": [
-            ArtworkFingerprint(
-                committed: "a29cba2760415d0de093df7dbb9bccc71d22028bea89eb8af64e2d67fdfecb63",
-                rendered: "a29cba2760415d0de093df7dbb9bccc71d22028bea89eb8af64e2d67fdfecb63"
-            ),
-            ArtworkFingerprint(
-                committed: "a29cba2760415d0de093df7dbb9bccc71d22028bea89eb8af64e2d67fdfecb63",
-                rendered: "8fb28729b1f064541dc0b7236d6408c45055aa40e6c5c94ffc0f33419bdc1f93"
-            ),
-            // macOS 27.2 (26B123) 1x runner render recorded 2026-11-20.
-            ArtworkFingerprint(
-                committed: "a29cba2760415d0de093df7dbb9bccc71d22028bea89eb8af64e2d67fdfecb63",
-                rendered: "a4ffe5dd3bbe13fe3d9079de721dcd4eb331933d66a9b08441a4968a677df884"
-            )
-        ]
+        "AppIcon-light.png": [ArtworkFingerprint(
+            committed: "1596abd9756c6e8be1de9c2650389cf7d7c7b9485099b7a968ed26947b09c065",
+            rendered: "1596abd9756c6e8be1de9c2650389cf7d7c7b9485099b7a968ed26947b09c065"
+        )],
+        "AppIcon-dark.png": [ArtworkFingerprint(
+            committed: "29ba11c961e47e4a05dda3cd569891750589f682baafcaa86a914d864e5bb230",
+            rendered: "29ba11c961e47e4a05dda3cd569891750589f682baafcaa86a914d864e5bb230"
+        )]
     ]
 
     func testPreviewUsesTheChargingWiFiStateWithBluetoothVolumeColor() {
@@ -91,7 +69,7 @@ final class AppIconPreviewTests: XCTestCase {
         XCTAssertTrue(alphaInfo == .premultipliedLast || alphaInfo == .last)
     }
 
-    func testBundledAppIconMatchesTheApprovedBluetoothColoredPreview() throws {
+    func testBundledAppIconMatchesTheApprovedPreview() throws {
         let appIconURL = URL(fileURLWithPath: "Support/AppIcon.png")
         let approvedPreviewURL = URL(fileURLWithPath: "screenshots/status-trio-app-icon-preview.png")
 
@@ -104,7 +82,7 @@ final class AppIconPreviewTests: XCTestCase {
         XCTAssertEqual(
             try Data(contentsOf: appIconURL),
             try Data(contentsOf: approvedPreviewURL),
-            "The approved app icon preview must exactly match the Bluetooth-colored render."
+            "The README and support preview must use the same approved artwork."
         )
     }
 
@@ -213,7 +191,7 @@ final class AppIconPreviewTests: XCTestCase {
         try FileManager.default.createDirectory(at: directoryURL, withIntermediateDirectories: true)
         for entry in Self.artworkStyles {
             let data = try AppIconPreview.artworkPNGData(backgroundStyle: entry.style)
-            XCTAssertGreaterThan(data.count, 10_000)
+            XCTAssertNotNil(NSBitmapImageRep(data: data))
             try data.write(to: directoryURL.appendingPathComponent(entry.fileName))
             print("Wrote \(data.count) bytes to \(entry.fileName)")
         }

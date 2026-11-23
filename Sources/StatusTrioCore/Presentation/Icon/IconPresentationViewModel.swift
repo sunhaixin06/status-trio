@@ -14,11 +14,7 @@ typealias IconSceneMapper = @MainActor (
 struct IconSceneMapping: Equatable, Sendable {
     var scene: IconSceneState
     var demand: IconPresentationDemand = .none
-
-    init(scene: IconSceneState, demand: IconPresentationDemand = .none) {
-        self.scene = scene
-        self.demand = demand
-    }
+    var trace: IconResolutionTrace = .empty
 }
 
 @MainActor
@@ -77,6 +73,7 @@ struct IconPresentationSettings: Equatable, Sendable {
     var hardwareMetricColors: [HardwareMonitorMetric: IconRGBA] = [:]
     var hardwareDownloadCapMbps: Double = 1000
     var hardwareUploadCapMbps: Double = 100
+    var statusStripLayout: StatusStripLayout? = nil
 }
 
 struct IconPresentationOutput: Equatable, Sendable {
@@ -84,6 +81,7 @@ struct IconPresentationOutput: Equatable, Sendable {
     var menuBarTestScene: IconSceneState? = nil
     let menuBarSize: Double
     var demand: IconPresentationDemand = .none
+    var trace: IconResolutionTrace = .empty
 
     /// Demand is published separately (even when the pixels are unchanged), so
     /// equality for repaint deduplication deliberately ignores it.
@@ -91,6 +89,7 @@ struct IconPresentationOutput: Equatable, Sendable {
         lhs.scene == rhs.scene
             && lhs.menuBarTestScene == rhs.menuBarTestScene
             && lhs.menuBarSize == rhs.menuBarSize
+            && lhs.trace == rhs.trace
     }
 }
 
@@ -370,7 +369,7 @@ final class IconPresentationViewModel: ObservableObject {
         resolveInputs: @MainActor (StatusSnapshot) -> IconPresentationInputs,
         mapScene: IconSceneMapper
     ) -> IconPresentationOutput {
-        let mapping = mapScene(
+        func inputs(for snapshot: StatusSnapshot) -> IconPresentationInputs {
             resolvedInputs(
                 snapshot: snapshot,
                 inputSource: inputSource,
@@ -381,31 +380,38 @@ final class IconPresentationViewModel: ObservableObject {
                 hardwareDownloadCapMbps: settings.hardwareDownloadCapMbps,
                 hardwareUploadCapMbps: settings.hardwareUploadCapMbps,
                 resolveInputs: resolveInputs
-            ),
-            settings.configuration,
-            settings.iconConfiguration,
-            settings.slotBindings
-        )
-        let scene = mapping.scene
+            )
+        }
+        func map(_ inputs: IconPresentationInputs) -> IconSceneMapping {
+            mapScene(inputs, settings.configuration, settings.iconConfiguration, settings.slotBindings)
+        }
+        func presented(_ mapping: IconSceneMapping, inputs: IconPresentationInputs) -> IconSceneState {
+            var scene = mapping.scene
+            if let layout = settings.statusStripLayout {
+                let outerSource = mapping.trace.outerRing.binding
+                scene.statusStrip = StatusStrip(
+                    layout: layout, snapshot: inputs.snapshot,
+                    threshold: settings.configuration.battery.criticalThreshold,
+                    usesSystemBattery: outerSource?.pluginID == "builtin.system-battery",
+                    prioritizesNetworkErrors: settings.iconConfiguration.composition.centerOverride.networkProblemOverridesPrimary,
+                    showsVolume: scene.bottomIndicatorSource == .volume,
+                    centerShowsNetwork: mapping.trace.center.selectedSourceID == CenterSource.network.rawValue,
+                    footerMetric: scene.bottomIndicatorSource == .metric ? inputs.bottomIndicatorMetric : nil,
+                    airPodsLevels: outerSource?.pluginID == "builtin.airpods-battery"
+                        ? AirPodsRingMapper.stripLevels(snapshot: inputs.sources.airPodsBattery, ring: scene.outerRing) : [],
+                    airPodsMarkerScale: settings.configuration.battery.textScale / BatteryIconOptions.defaultTextScale,
+                    showsAirPodsSymbol: settings.iconConfiguration.behaviors.showsAirPodsTopSymbol
+                )
+            }
+            return scene
+        }
+        let liveInputs = inputs(for: snapshot)
+        let mapping = map(liveInputs)
+        let scene = presented(mapping, inputs: liveInputs)
         let menuBarTestScene: IconSceneState?
         if settings.testsChargingEffect {
-            let projected = ChargingEffectTestMode.snapshot(snapshot, enabled: true)
-            menuBarTestScene = mapScene(
-                resolvedInputs(
-                    snapshot: projected,
-                    inputSource: inputSource,
-                    systemPower: systemPower,
-                    isHighPowerMode: isHighPowerMode,
-                    settingsRuntimeOptions: settings.runtimeOptions,
-                    hardwareMetricColors: settings.hardwareMetricColors,
-                    hardwareDownloadCapMbps: settings.hardwareDownloadCapMbps,
-                    hardwareUploadCapMbps: settings.hardwareUploadCapMbps,
-                    resolveInputs: resolveInputs
-                ),
-                settings.configuration,
-                settings.iconConfiguration,
-                settings.slotBindings
-            ).scene
+            let testInputs = inputs(for: ChargingEffectTestMode.snapshot(snapshot, enabled: true))
+            menuBarTestScene = presented(map(testInputs), inputs: testInputs)
         } else {
             menuBarTestScene = nil
         }
@@ -413,7 +419,8 @@ final class IconPresentationViewModel: ObservableObject {
             scene: scene,
             menuBarTestScene: menuBarTestScene,
             menuBarSize: settings.menuBarSize,
-            demand: mapping.demand
+            demand: mapping.demand,
+            trace: mapping.trace
         )
     }
 

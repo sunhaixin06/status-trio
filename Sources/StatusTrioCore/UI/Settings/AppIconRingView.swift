@@ -43,6 +43,7 @@ private enum HardwareTopReading: Hashable, Identifiable {
 /// (temporary full charge, restore limit) stay in Battery → Charging.
 struct AppIconRingView: View {
     @ObservedObject var store: SettingsStore
+    var statusStore: SystemStatusStore?
     /// Whether the Mac actually has a battery. A desktop (e.g. Mac mini) has no
     /// real level, so the ring controls collapse to a decorative top marker.
     var hasBattery: Bool = true
@@ -67,6 +68,9 @@ struct AppIconRingView: View {
         LocalIconPluginSlotPicker(slot: .outerRing, store: store)
         LocalIconPluginPackageSettings(store: store)
         if store.outerRingContent == .airPodsBattery {
+            if let statusStore {
+                AirPodsIconSourceStatus(store: store, statusStore: statusStore, bluetoothDevices: statusStore.bluetoothDevices)
+            }
             airPodsTopMarkerGroup
             airPodsArcGroup
             airPodsFallbackGroup
@@ -160,10 +164,8 @@ struct AppIconRingView: View {
     /// starts with a「顶部标识」group.
     private var airPodsTopMarkerGroup: some View {
         SettingsGroup(localization.string(.settingsTopMarkerGroup)) {
-            if store.showsAirPodsTopSymbolInRing {
-                topMarkerSizeRow
-                SettingsDivider()
-            }
+            topMarkerSizeRow
+            SettingsDivider()
             SettingsToggleRow(
                 symbol: "airpods",
                 tint: .blue,
@@ -758,16 +760,6 @@ struct AppIconRingView: View {
 
     private var progressGroup: some View {
         SettingsGroup(localization.string(.settingsBatteryGroupProgress)) {
-            SettingsToggleRow(
-                symbol: "circle.lefthalf.filled",
-                tint: .blue,
-                title: localization.string(.settingsBatterySplitGapProgress),
-                subtitle: localization.string(.settingsBatterySplitGapProgressDescription),
-                isOn: $store.batterySplitGapProgress
-            )
-
-            SettingsDivider()
-
             fullThresholdRow
 
             systemChargeLimitUnavailableNote
@@ -778,7 +770,7 @@ struct AppIconRingView: View {
     /// limit. Kept apart from the real charge management controls.
     private var fullThresholdRow: some View {
         SettingsRow(
-            "battery100.bolt",
+            "battery.100",
             tint: .green,
             title: localization.string(.settingsBatteryFullThreshold),
             subtitle: localization.string(.settingsBatteryFullThresholdDescription),
@@ -919,6 +911,57 @@ struct AppIconRingView: View {
     }
 }
 
+private struct AirPodsIconSourceStatus: View {
+    @ObservedObject var store: SettingsStore
+    let statusStore: SystemStatusStore
+    @ObservedObject var bluetoothDevices: BluetoothDeviceController
+    @EnvironmentObject private var localization: Localization
+
+    var body: some View {
+        let candidates = bluetoothDevices.devices.filter { $0.airPodsModel != nil && !$0.isUnpairedGhost }
+        SettingsGroup {
+            LiveIconSettingsStatus { output in
+                let trace = output.trace.outerRing
+                if let levels = output.scene.statusStrip?.airPodsLevels, !levels.isEmpty {
+                    let reading = levels.map { $0.map { "\($0)%" } ?? "\u{2013}" }.joined(separator: " / ")
+                    return "\(localization.string(.settingsRingContentAirPodsBattery)) · \(reading)"
+                }
+                let source: LocalizationKey? = switch trace.selectedSourceID {
+                case RingSource.systemBattery.rawValue: .settingsRingContentSystemBattery
+                case RingSource.hardwareMonitor.rawValue: .settingsRingContentHardwareMonitor
+                default: nil
+                }
+                let keys = (source.map { [$0] } ?? []) + IconResolutionExplanation.localizationKeys(for: trace)
+                return keys.map { localization.string($0) }.joined(separator: " · ")
+            }
+            if bluetoothDevices.authorization != .allowed {
+                BluetoothIconPermissionRow(statusStore: statusStore, bluetoothDevices: bluetoothDevices)
+            } else if candidates.count > 1 || store.airPodsIconDeviceAddress != nil {
+                SettingsRow("airpods", tint: .blue,
+                            title: localization.string(.iconDesignerControlSelectAirPodsDevice)) {
+                    Picker(localization.string(.iconDesignerControlSelectAirPodsDevice),
+                           selection: $store._airPodsIconDeviceAddress) {
+                        Text(localization.string(.iconDesignerControlAutomatic)).tag(nil as String?)
+                        ForEach(candidates) { device in Text(device.name).tag(Optional(device.id)) }
+                        if let address = store.airPodsIconDeviceAddress, !candidates.contains(where: { $0.id == address }) {
+                            Text(localization.string(.iconResolutionUnavailableDisconnected)).tag(Optional(address))
+                        }
+                    }
+                    .labelsHidden()
+                    .settingsMenuPickerWidth()
+                }
+            }
+            SettingsToggleRow(
+                symbol: "arrow.clockwise.circle",
+                tint: .green,
+                title: localization.string(.settingsAppleBackgroundRefresh),
+                subtitle: localization.string(.settingsAirPodsIconBackgroundDescription),
+                isOn: $store.refreshesAppleBatteriesInBackground
+            )
+        }
+    }
+}
+
 /// A small picture tile for the ring-content picker. It renders the real Status
 /// Trio icon scene for a fixed sample status through `IconCompositionResolver` —
 /// the same path the menu bar and Dock draw — with only the outer-ring source
@@ -1001,12 +1044,21 @@ enum RingContentPreviewScene {
                 .uploadSpeed: store.hardwareUploadCapMbps
             ]
         )
-        let scene = IconCompositionResolver.resolve(
+        let resolution = IconCompositionResolver.resolve(
             inputs: inputs,
             configuration: configuration,
             now: sampleDate
-        ).scene
-        return StatusIconPreviewCache.shared.image(
+        )
+        var scene = resolution.scene
+        scene.statusStrip = StatusStrip(
+            layout: .unified, snapshot: inputs.system.snapshot, threshold: 20,
+            usesSystemBattery: content == .systemBattery,
+            airPodsLevels: content == .airPodsBattery
+                ? AirPodsRingMapper.stripLevels(snapshot: inputs.sources.airPodsBattery, ring: scene.outerRing) : [],
+            airPodsMarkerScale: store.batterySymbolScale,
+            showsAirPodsSymbol: configuration.behaviors.showsAirPodsTopSymbol
+        )
+        return StatusIconPreviewCache.shared.stripImage(
             scene: scene,
             size: 28,
             scale: 2,

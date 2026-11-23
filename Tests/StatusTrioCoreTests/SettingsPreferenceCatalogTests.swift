@@ -29,7 +29,7 @@ final class SettingsPreferenceCatalogTests: XCTestCase {
             let expected: Set<String> = [
                 "appIconPlacement", "dockIconBackgroundPreference", "panelBackgroundStyle",
                 "panelLevelSliderColor", "panelLevelSliderMatchesBrightnessThickness",
-                "menuBarRightClickAction", "iconSize", "batteryOnBatteryMarker",
+                "menuBarRightClickAction", "iconSize", "statusStripLayout", "batteryOnBatteryMarker",
                 "batteryChargingMarker", "batteryConnectedMarker", "batteryNoBatteryMarker",
                 "showsBatteryPowerFlow", "showsBatteryPowerInfoBar", "showsHighEnergyApps",
                 "showsPanelDetailsAlongside", "showsPanelOnHover",
@@ -64,6 +64,8 @@ final class SettingsPreferenceCatalogTests: XCTestCase {
     func testRoundTripIncludesBothIconSurfacesAndPersistsThroughStoreSetters() {
         withStore { source, _ in
             source.iconSize = 31
+            source.statusStripLayout = .connection
+            source.volumeDisplayStyle = .verticalBar
             source.showsMenuBarChargingEffect = false
             source.showsDockChargingEffect = true
             source.monochromeChargingRing = false

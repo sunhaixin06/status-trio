@@ -91,13 +91,7 @@ final class DockIconRendererTests: XCTestCase {
         ))
         let pixels = try pixels(for: status)
 
-        XCTAssertTrue(pixels.containsColor(
-            red: 52.0 / 255.0,
-            green: 199.0 / 255.0,
-            blue: 89.0 / 255.0,
-            tolerance: 0.08,
-            minimumAlpha: 0.9
-        ))
+        XCTAssertTrue(pixels.containsColor(BatteryStatusColorPalette.resolved(dark: true).charging))
     }
 
     func testBoltHeartbeatSettingDoesNotChangeTheStaticDockIcon() throws {
@@ -138,20 +132,9 @@ final class DockIconRendererTests: XCTestCase {
         ))
     }
 
-    func testLightStyleUsesLightAppearanceSemanticGreen() throws {
+    func testLightStyleUsesLightChargingAccent() throws {
         let pixels = try pixels(for: chargingStatus(), backgroundStyle: .light)
-        var lightSemanticGreen = NSColor.systemGreen
-        NSAppearance(named: .aqua)!.performAsCurrentDrawingAppearance {
-            lightSemanticGreen = NSColor.systemGreen.usingColorSpace(.deviceRGB)!
-        }
-
-        XCTAssertTrue(pixels.containsColor(
-            red: lightSemanticGreen.redComponent,
-            green: lightSemanticGreen.greenComponent,
-            blue: lightSemanticGreen.blueComponent,
-            tolerance: 0.08,
-            minimumAlpha: 0.9
-        ))
+        XCTAssertTrue(pixels.containsColor(BatteryStatusColorPalette.resolved(dark: false).charging))
     }
 
     func testDarkStyleStaysUnchangedByLightPalette() throws {
@@ -353,24 +336,9 @@ final class DockIconRendererTests: XCTestCase {
         return try PixelBuffer(image: try XCTUnwrap(representation.cgImage))
     }
 
-    /// #188: the Dock now resolves `.critical` through the same semantic palette
-    /// as charging and low power, so a dark tile draws the dark-appearance system
-    /// red rather than the old fixed #FF3B30. This is intentional three-role
-    /// semantic parity, documented in the implementation report.
-    func testDarkStyleUsesDarkAppearanceSemanticRed() throws {
+    func testDarkStyleUsesDarkCriticalAccent() throws {
         let pixels = try pixels(for: criticalStatus(), backgroundStyle: .dark)
-        var expected = NSColor.systemRed
-        NSAppearance(named: .darkAqua)!.performAsCurrentDrawingAppearance {
-            expected = NSColor.systemRed.usingColorSpace(.deviceRGB)!
-        }
-
-        XCTAssertTrue(pixels.containsColor(
-            red: expected.redComponent,
-            green: expected.greenComponent,
-            blue: expected.blueComponent,
-            tolerance: 0.08,
-            minimumAlpha: 0.9
-        ))
+        XCTAssertTrue(pixels.containsColor(BatteryStatusColorPalette.resolved(dark: true).critical))
     }
 
     private func chargingStatus() -> MenuBarStatus {

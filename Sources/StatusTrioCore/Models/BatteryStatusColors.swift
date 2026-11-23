@@ -13,16 +13,15 @@ enum BatteryStatusColorRole: String, CaseIterable, Hashable, Sendable {
     case discharging
     case charging
     case lowPower
-    /// High Power Mode's ring colour (#235). Defaults to the system blue so an
-    /// existing install gains the state without changing its saved palette.
+    /// High Power Mode's blue accent, independent of the charging colour.
     case highPower
     case critical
 }
 
 /// The colour a user picked for one role.
 ///
-/// `.system` means "use the system semantic colour" and is the default, so an
-/// upgrade never changes an existing icon. `.preset` names one of the built-in
+/// `.system` follows the appearance-aware default for that role. Existing
+/// preset and custom selections remain unchanged. `.preset` names one of the built-in
 /// palettes, which adapts to the menu bar's light/dark appearance by itself.
 /// `.custom` stores the colour the picker reported and applies it unchanged to
 /// both appearances, apart from the visibility floor.

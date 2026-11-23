@@ -1,4 +1,12 @@
 "menu.version" = "Status Trio %@";
+"statusStrip.layout" = "Disposition des états";
+"statusStrip.divider" = "Séparateur fin";
+"statusStrip.batteryWordmark" = "Batterie chiffrée";
+"statusStrip.capsule" = "Capsule simple";
+"statusStrip.gauge" = "Jauge de batterie";
+"statusStrip.unified" = "Trois cellules";
+"statusStrip.connection" = "Connexion en avant";
+"statusStrip.alerts" = "Alertes prioritaires";
 "menu.settings" = "Réglages…";
 "menu.quit" = "Quitter Status Trio";
 "menu.about" = "À propos de %@";
@@ -614,19 +622,20 @@
 "settings.wifi.symbolScaleDescription" = "Ajuste l’échelle de l’icône Wi-Fi dans l’anneau de statut de 100 % à 180 %.";
 "settings.audio.indicatorStyleTitle" = "Style de l'indicateur de volume";
 "settings.audio.indicatorStyle" = "Style d'affichage";
-"settings.audio.indicatorStyleDescription" = "Choisissez d'afficher le volume sous forme de quatre points ou d'un arc continu.";
+"settings.audio.indicatorStyleDescription" = "Choisissez quatre points, une barre horizontale ou une barre verticale.";
 "settings.audio.indicatorStyle.dots" = "Points";
-"settings.audio.indicatorStyle.arc" = "Arc";
+"settings.audio.indicatorStyle.arc" = "Barre horizontale";
+"settings.audio.indicatorStyle.verticalBar" = "Barre verticale";
 "settings.audio.bottomIndicatorTitle" = "Indicateur inférieur";
-"settings.audio.bottomIndicatorDescription" = "Choisissez ce que la barre sous l’icône affiche. Le style à quatre points ou en arc reste inchangé.";
+"settings.audio.bottomIndicatorDescription" = "Choisissez le contenu du dernier emplacement.";
 "settings.audio.bottomIndicatorSource" = "Source de l’indicateur inférieur";
 "settings.audio.bottomIndicatorSource.volume" = "Volume";
 "settings.audio.bottomIndicatorSource.wifi" = "Wi-Fi";
 "settings.audio.bottomIndicatorSource.battery" = "Batterie";
 "settings.audio.bottomIndicatorSource.hidden" = "Masqué";
 "settings.audio.bottomIndicatorSource.metric" = "Personnalisé";
-"settings.audio.bottomIndicatorMetric" = "Personnalisé";
-"settings.audio.bottomIndicatorMetricDescription" = "Choisissez la mesure matérielle affichée par la barre. Le style à quatre points ou en arc reste identique.";
+"settings.audio.bottomIndicatorMetric" = "Mesure matérielle";
+"settings.audio.bottomIndicatorMetricDescription" = "Le dernier emplacement affiche la mesure choisie, sa valeur et une jauge.";
 "settings.audio.airPodsInlineControlsTitle" = "Commandes du casque";
 "settings.audio.airPodsInlineControls" = "Afficher les commandes AirPods dans le panneau du volume";
 "settings.audio.airPodsInlineControlsDescription" = "Affiche les commandes de perception des conversations, de l'audio spatial et de l'adaptatif à côté de votre sortie AirPods. Désactivez pour masquer ces commandes basées sur des API privées.";
@@ -736,6 +745,7 @@
 "settings.appleDevicesAndBattery.description" = "Les appareils Apple de confiance et nommés à proximité apparaissent dans la liste Bluetooth.";
 "settings.appleBackgroundRefresh" = "Actualiser les batteries Apple en arrière-plan";
 "settings.appleBackgroundRefresh.description" = "Actualise la batterie des appareils Apple sélectionnés lorsque le panneau est fermé.";
+"settings.ringContent.airPodsBackground.description" = "Actualise la batterie des AirPods même lorsque le panneau est fermé.";
 "settings.appleBackgroundRefresh.interval" = "Intervalle d’actualisation des batteries en arrière-plan";
 "settings.appleBackgroundRefresh.intervalValue" = "%d minute(s)";
 

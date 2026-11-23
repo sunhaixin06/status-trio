@@ -1,6 +1,39 @@
 import AppKit
 import SwiftUI
 
+private struct SettingsIconPresentationKey: EnvironmentKey {
+    static let defaultValue: IconPresentationViewModel? = nil
+}
+
+extension EnvironmentValues {
+    var settingsIconPresentation: IconPresentationViewModel? {
+        get { self[SettingsIconPresentationKey.self] }
+        set { self[SettingsIconPresentationKey.self] = newValue }
+    }
+}
+
+private struct IconPresentationPreview<Content: View>: View {
+    @ObservedObject var model: IconPresentationViewModel
+    @ViewBuilder let content: (IconPresentationOutput) -> Content
+
+    var body: some View { content(model.output) }
+}
+
+struct LiveIconSettingsStatus: View {
+    @Environment(\.settingsIconPresentation) private var iconPresentation
+    let text: (IconPresentationOutput) -> String?
+
+    var body: some View {
+        if let iconPresentation {
+            IconPresentationPreview(model: iconPresentation) { output in
+                if let message = text(output) {
+                    SettingsHintRow(text: message)
+                }
+            }
+        }
+    }
+}
+
 /// Live status icon preview shown at the top of the icon-related settings panes.
 ///
 /// The card renders the real menu bar artwork through `StatusIconRenderer`, so
@@ -15,6 +48,7 @@ struct StatusIconPreviewCard: View {
     @Binding var isDarkBackground: Bool
     @EnvironmentObject private var localization: Localization
     @EnvironmentObject private var chargingEffectClock: ChargingEffectClock
+    @Environment(\.settingsIconPresentation) private var iconPresentation
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var previewPlayback = ChargingEffectPreviewPlayback()
     /// Identifies this card's claim on the shared clock, so a Dock-only menu bar
@@ -25,13 +59,19 @@ struct StatusIconPreviewCard: View {
 
     var body: some View {
         InputSourceLivePreview(controller: inputSourceController) {
-            card
+            if let iconPresentation {
+                IconPresentationPreview(model: iconPresentation) { output in
+                    card(scene: output.menuBarTestScene ?? output.scene)
+                }
+            } else {
+                card(scene: nil)
+            }
         }
     }
 
-    private var card: some View {
+    private func card(scene: IconSceneState?) -> some View {
         VStack(spacing: 8) {
-            menuBarPreview
+            menuBarPreview(scene: scene)
 
             Text(localization.string(.settingsPreviewHint))
                 .font(.system(size: 11))
@@ -75,9 +115,9 @@ struct StatusIconPreviewCard: View {
     }
 
     @ViewBuilder
-    private var menuBarPreview: some View {
+    private func menuBarPreview(scene: IconSceneState?) -> some View {
         if let phase = liveChargingPhase {
-            previewBar(status: currentStatus, phase: phase)
+            previewBar(status: currentStatus, phase: phase, scene: scene)
         } else if previewPlayback.isPlaying && !store.isNoBatterySimulationActive {
             TimelineView(.animation(
                 minimumInterval: 1 / Double(ChargingEffectTimeline.framesPerSecond),
@@ -86,11 +126,12 @@ struct StatusIconPreviewCard: View {
                 let phase = previewPlayback.phase(at: timeline.date)
                 previewBar(
                     status: phase == nil ? currentStatus : chargingPreviewStatus,
-                    phase: phase
+                    phase: phase,
+                    scene: phase == nil ? scene : nil
                 )
             }
         } else {
-            previewBar(status: currentStatus, phase: nil)
+            previewBar(status: currentStatus, phase: nil, scene: scene)
         }
     }
 
@@ -156,7 +197,8 @@ struct StatusIconPreviewCard: View {
 
     private func previewBar(
         status: MenuBarStatus,
-        phase: ChargingEffectPhase?
+        phase: ChargingEffectPhase?,
+        scene: IconSceneState?
     ) -> some View {
         MenuBarPreviewBar(
             status: status,
@@ -175,7 +217,10 @@ struct StatusIconPreviewCard: View {
             bottomIndicatorSource: store.bottomIndicatorSource,
             bottomIndicatorMetric: store.bottomIndicatorMetric,
             bottomIndicatorMetricColor: store.hardwareColor(for: store.bottomIndicatorMetric),
-            bottomIndicatorStyle: store.effectiveBottomIndicatorStyle
+            bottomIndicatorStyle: store.effectiveBottomIndicatorStyle,
+            layout: store.statusStripLayout,
+            wifiBand: displaySnapshot.wifi.band,
+            resolvedScene: scene?.withChargingEffectEnabled(store.showsMenuBarChargingEffect)
         ) {
             appearanceToggle
         }
@@ -230,6 +275,7 @@ struct StatusIconPreviewCard: View {
 /// Small Dock tile preview that mirrors the live Dock icon.
 struct DockIconPreviewTile: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.settingsIconPresentation) private var iconPresentation
     @ObservedObject var store: SettingsStore
     @ObservedObject var statusStore: SystemStatusStore
     var inputSourceController: InputSourceController? = nil
@@ -239,7 +285,13 @@ struct DockIconPreviewTile: View {
 
     var body: some View {
         InputSourceLivePreview(controller: inputSourceController) {
-            tile
+            Group {
+                if let iconPresentation {
+                    IconPresentationPreview(model: iconPresentation) { output in
+                        tile(scene: output.scene)
+                    }
+                } else { tile(scene: nil) }
+            }
                 .animation(reduceMotion ? nil : .easeInOut(duration: 0.15), value: store.batteryIconOptions)
                 .animation(reduceMotion ? nil : .easeInOut(duration: 0.15), value: store.connectionIconOptions)
                 .animation(reduceMotion ? nil : .easeInOut(duration: 0.15), value: store.volumeIconOptions)
@@ -249,15 +301,16 @@ struct DockIconPreviewTile: View {
     }
 
     @MainActor
-    var renderKey: DockIconRenderKey { tile.renderKey }
+    var renderKey: DockIconRenderKey { tile(scene: nil).renderKey }
 
     @MainActor
-    var previewImage: NSImage? { tile.previewImage }
+    var previewImage: NSImage? { tile(scene: nil).previewImage }
 
     /// The tile the body renders, so a test reads exactly the key the body uses.
-    private var tile: DockIconTile {
+    private func tile(scene: IconSceneState?) -> DockIconTile {
         DockIconTile(
             status: MenuBarStatus(snapshot: statusStore.snapshot),
+            layout: store.statusStripLayout,
             batteryOptions: store.batteryIconOptions,
             connectionOptions: store.connectionIconOptions,
             volumeOptions: store.volumeIconOptions,
@@ -267,7 +320,9 @@ struct DockIconPreviewTile: View {
             inputSource: inputSourceController?.state.iconDescriptor(
                 markerStyle: store.inputSourceMarkerStyle
             ),
-            previewCache: previewCache
+            previewCache: previewCache,
+            wifiBand: statusStore.snapshot.wifi.band,
+            resolvedScene: scene
         )
     }
 

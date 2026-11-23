@@ -2,9 +2,7 @@ import AppKit
 import Foundation
 import SwiftUI
 
-/// The real four-ring strip (CPU, GPU, RAM, SSD) shared by the menu-bar design
-/// preview and the status panel. It renders the app's actual ring scene and a
-/// real metric per arc, so both surfaces stay pixel-identical.
+/// Linear CPU, GPU, RAM and SSD meters shared by the design preview and panel.
 struct HardwareRingStrip: View {
     @ObservedObject var hardware: HardwareMonitorObservable
     let colors: [HardwareMonitorMetric: IconRGBA]
@@ -241,9 +239,6 @@ struct MenuBarIconPreviewGrid: View {
 
             HardwareRingStrip(hardware: hardware, colors: colors, diskColor: diskColor)
 
-            Text("图标约 60×60 pt · 标签在底部，数据实时")
-                .font(.system(size: 9))
-                .foregroundStyle(.tertiary)
         }
         .padding(10)
         .background(
@@ -255,14 +250,9 @@ struct MenuBarIconPreviewGrid: View {
     }
 }
 
-/// Renders only the app's real ring (no text) and lets the caller overlay static
-/// text. Conforming to `Animatable` means only the ring's progress interpolates;
-/// numeric/label text changes are siblings and update instantly.
-private struct AnimatedRingLayer: View, Animatable {
+private struct AnimatedMetricTrack: View, Animatable {
     let color: IconRGBA
     var progress: Double
-
-    @Environment(\.colorScheme) private var colorScheme
 
     nonisolated var animatableData: Double {
         get { progress }
@@ -271,36 +261,16 @@ private struct AnimatedRingLayer: View, Animatable {
 
     var body: some View {
         GeometryReader { proxy in
-            let side = min(proxy.size.width, proxy.size.height)
-            if let image {
-                Image(nsImage: image)
-                    .resizable()
-                    .scaledToFit()
-                    .frame(width: side, height: side)
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+            ZStack(alignment: .leading) {
+                Capsule().fill(Color.primary.opacity(0.14))
+                Capsule().fill(Color(red: color.red, green: color.green, blue: color.blue, opacity: color.alpha))
+                    .frame(width: proxy.size.width * min(1, max(0, progress)))
             }
         }
     }
-
-    private var image: NSImage? {
-        let ring = OuterRingState(
-            segments: [RingSegmentState(progress: progress, color: .custom(color))],
-            gap: .value,
-            layout: .standard,
-            accessory: nil,
-            strokeScale: 1.1
-        )
-        return StatusIconPreviewCache.shared.image(
-            scene: IconSceneState(outerRing: ring, center: nil),
-            size: 72,
-            scale: 2,
-            appearance: MenuBarPreviewBackdrop.appearance(isDarkBackground: colorScheme == .dark)
-        )
-    }
 }
 
-/// Static text layer over the animated app ring: top percentage, centre value
-/// and bottom label. These never animate with the ring progress.
+/// Metric readouts update immediately; only the meter interpolates.
 struct AnimatedSceneIcon: View {
     let label: String
     let top: String
@@ -316,7 +286,9 @@ struct AnimatedSceneIcon: View {
         GeometryReader { proxy in
             let side = min(proxy.size.width, proxy.size.height)
             ZStack {
-                AnimatedRingLayer(color: color, progress: progress)
+                AnimatedMetricTrack(color: color, progress: progress)
+                    .frame(width: side * 0.70, height: max(2, side * 0.05))
+                    .offset(y: side * 0.17)
                     .animation(animatesProgress ? .easeOut(duration: 0.35) : nil, value: progress)
                 Text(top)
                     .font(.system(size: side * 0.166 * 1.1, weight: .regular))
@@ -327,7 +299,7 @@ struct AnimatedSceneIcon: View {
                 Text(label)
                     .font(.system(size: side * 0.14, weight: .regular))
                     .foregroundStyle(.secondary)
-                    .offset(y: side * 0.30)
+                    .offset(y: side * 0.36)
             }
             .frame(width: side, height: side)
             .frame(maxWidth: .infinity, maxHeight: .infinity)

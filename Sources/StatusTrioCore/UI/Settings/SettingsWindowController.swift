@@ -8,6 +8,7 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate {
     private let store: SettingsStore
     private let statusStore: SystemStatusStore
     private let chargingEffectClock: ChargingEffectClock
+    private let iconPresentation: IconPresentationViewModel?
     private let localization: Localization
     private let inputSourceController: InputSourceController
     private let globalShortcutController: GlobalShortcutController?
@@ -39,6 +40,7 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate {
         activationPolicy: AppActivationPolicy,
         showIconGuide: @escaping () -> Void,
         chargingEffectClock: ChargingEffectClock = ChargingEffectClock(),
+        iconPresentation: IconPresentationViewModel? = nil,
         inputSourceController: InputSourceController? = nil,
         globalShortcutController: GlobalShortcutController? = nil,
         chargeToFullNow: ChargeToFullNowController? = nil,
@@ -50,6 +52,7 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate {
         self.store = store
         self.statusStore = statusStore
         self.chargingEffectClock = chargingEffectClock
+        self.iconPresentation = iconPresentation
         self.localization = localization
         self.inputSourceController = inputSourceController ?? InputSourceController()
         self.globalShortcutController = globalShortcutController
@@ -246,6 +249,7 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate {
                 consumePendingSubtopic: { [weak self] in self?.takePendingSubtopic() }
             )
             .environmentObject(chargingEffectClock)
+            .environment(\.settingsIconPresentation, iconPresentation)
         }
 
         window.contentView = NSHostingView(rootView: rootView)

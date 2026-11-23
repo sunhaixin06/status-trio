@@ -30,7 +30,7 @@ struct ChargeToFullNowActionView: View {
                                 .controlSize(.small)
                                 .frame(width: 14, height: 14)
                         } else if showsBolt {
-                            Image(systemName: "bolt.fill")
+                            Image(systemName: "arrow.up")
                                 .frame(width: 14, height: 14)
                         }
 

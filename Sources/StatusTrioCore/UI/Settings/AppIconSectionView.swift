@@ -43,7 +43,7 @@ struct AppIconSectionView: View {
         statusIconGroup
         MiddleIconSettingsGroup(store: store, statusStore: statusStore)
         dockGroup
-        AppIconRingView(store: store, hasBattery: statusStore.snapshot.battery.isPresent)
+        AppIconRingView(store: store, statusStore: statusStore, hasBattery: statusStore.snapshot.battery.isPresent)
         AppIconBottomIndicatorView(
             store: store,
             statusStore: statusStore,
@@ -65,6 +65,7 @@ struct AppIconSectionView: View {
         case .appIconRing:
             AppIconRingView(
                 store: store,
+                statusStore: statusStore,
                 hasBattery: statusStore.snapshot.battery.isPresent,
                 showsRingContentTitle: false
             )
@@ -139,6 +140,19 @@ struct AppIconSectionView: View {
     private var menuBarGroup: some View {
         SettingsGroup(localization.string(.settingsMenuBarTitle)) {
             SettingsRow(
+                "rectangle.split.3x1", tint: .teal,
+                title: localization.string(.statusStripLayout)
+            ) {
+                Picker(localization.string(.statusStripLayout), selection: $store.statusStripLayout) {
+                    ForEach(StatusStripLayout.allCases) { layout in
+                        Text(localization.string(layout.titleKey)).tag(layout)
+                    }
+                }
+                .labelsHidden()
+                .accessibilityIdentifier("appIcon.statusStripLayout")
+            }
+            SettingsDivider()
+            SettingsRow(
                 "menubar.rectangle",
                 tint: .indigo,
                 title: localization.string(.settingsIconSize),
@@ -176,7 +190,7 @@ struct AppIconSectionView: View {
     private var statusIconGroup: some View {
         SettingsGroup(localization.string(.settingsStatusIconTitle)) {
             SettingsPictureRow(
-                "circle.circle",
+                "lineweight",
                 tint: .indigo,
                 title: localization.string(.settingsRingStrokeStyle),
                 subtitle: localization.string(.settingsRingStrokeStyleDescription),

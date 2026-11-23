@@ -67,11 +67,12 @@ struct LocalIconPlugin: IconContentPlugin {
                 color: .primary,
                 strokeScale: options.ringStrokeScale
             ))
-        case .arc:
+        case .arc, .verticalBar:
             return .arc(ArcState(
                 progress: fraction,
                 color: .primary,
-                strokeScale: options.ringStrokeScale
+                strokeScale: options.ringStrokeScale,
+                isVertical: options.displayStyle == .verticalBar
             ))
         }
     }

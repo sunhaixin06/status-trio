@@ -123,7 +123,7 @@ final class StatusIconRendererTests: XCTestCase {
         ))
     }
 
-    func testChargingStateDrawsGreenPixels() throws {
+    func testChargingStateDrawsDarkAppearanceAccent() throws {
         let snapshot = StatusSnapshot(
             battery: BatteryStatus(
                 rawPercentage: 50,
@@ -145,16 +145,10 @@ final class StatusIconRendererTests: XCTestCase {
             ))
         )
 
-        XCTAssertTrue(pixels.containsColor(
-            red: 0.20,
-            green: 0.78,
-            blue: 0.35,
-            tolerance: 0.08,
-            minimumAlpha: 0.9
-        ))
+        XCTAssertTrue(pixels.containsColor(BatteryStatusColorPalette.resolved(dark: true).charging))
     }
 
-    func testChargingStateUsesLightAppearanceSemanticGreen() throws {
+    func testChargingStateDrawsLightAppearanceAccent() throws {
         let snapshot = StatusSnapshot(
             battery: makeBattery(rawPercentage: 50, isCharging: true),
             wifi: .placeholder,
@@ -169,17 +163,7 @@ final class StatusIconRendererTests: XCTestCase {
             ))
         )
 
-        // #188: the charging arc is now the light-appearance system green, not a
-        // frozen RGB constant. Assert against the semantic colour the renderer
-        // resolves for the light menu bar instead of a hand-tuned triple.
-        let expected = resolvedSystemColor(.systemGreen, dark: false)
-        XCTAssertTrue(pixels.containsColor(
-            red: expected.red,
-            green: expected.green,
-            blue: expected.blue,
-            tolerance: 0.08,
-            minimumAlpha: 0.9
-        ))
+        XCTAssertTrue(pixels.containsColor(BatteryStatusColorPalette.resolved(dark: false).charging))
     }
 
     func testOffAndUnavailableStatesDrawSlashOutsideWiFiArcs() throws {
@@ -256,7 +240,7 @@ final class StatusIconRendererTests: XCTestCase {
         XCTAssertNotEqual(noInternetPixels.bytes, notAssociatedPixels.bytes)
     }
 
-    func testLowPowerStateDrawsYellowPixels() throws {
+    func testLowPowerStateDrawsDarkAppearanceAccent() throws {
         let snapshot = StatusSnapshot(
             battery: BatteryStatus(
                 rawPercentage: 50,
@@ -278,16 +262,10 @@ final class StatusIconRendererTests: XCTestCase {
             ))
         )
 
-        XCTAssertTrue(pixels.containsColor(
-            red: 0.95,
-            green: 0.73,
-            blue: 0.0,
-            tolerance: 0.08,
-            minimumAlpha: 0.9
-        ))
+        XCTAssertTrue(pixels.containsColor(BatteryStatusColorPalette.resolved(dark: true).lowPower))
     }
 
-    func testLowPowerStateUsesLightAppearanceSemanticYellow() throws {
+    func testLowPowerStateDrawsLightAppearanceAccent() throws {
         let snapshot = StatusSnapshot(
             battery: makeBattery(rawPercentage: 50, isLowPowerMode: true),
             wifi: .placeholder,
@@ -302,15 +280,7 @@ final class StatusIconRendererTests: XCTestCase {
             ))
         )
 
-        // #188: the low-power arc is now the light-appearance system yellow.
-        let expected = resolvedSystemColor(.systemYellow, dark: false)
-        XCTAssertTrue(pixels.containsColor(
-            red: expected.red,
-            green: expected.green,
-            blue: expected.blue,
-            tolerance: 0.08,
-            minimumAlpha: 0.9
-        ))
+        XCTAssertTrue(pixels.containsColor(BatteryStatusColorPalette.resolved(dark: false).lowPower))
     }
 
 
@@ -1831,24 +1801,6 @@ final class StatusIconRendererTests: XCTestCase {
         // The product ID, not the name, decides the glyph.
         XCTAssertEqual(namedAirPods.bytes, renamedAirPods.bytes)
         XCTAssertNotEqual(renamedWithoutProductID.bytes, renamedAirPods.bytes)
-    }
-
-    /// Resolves a dynamic system colour the way the renderer does for one menu
-    /// bar appearance, so a semantic baseline can be asserted without pinning a
-    /// hand-tuned RGB triple that the OS may tune independently.
-    private func resolvedSystemColor(
-        _ color: NSColor,
-        dark: Bool
-    ) -> (red: CGFloat, green: CGFloat, blue: CGFloat) {
-        guard let appearance = NSAppearance(named: dark ? .darkAqua : .aqua) else {
-            return (0, 0, 0)
-        }
-        var resolved: (red: CGFloat, green: CGFloat, blue: CGFloat) = (0, 0, 0)
-        appearance.performAsCurrentDrawingAppearance {
-            guard let rgb = color.usingColorSpace(.deviceRGB) else { return }
-            resolved = (rgb.redComponent, rgb.greenComponent, rgb.blueComponent)
-        }
-        return resolved
     }
 
     private func bluetoothPixels(deviceName: String, modelUID: String?) throws -> PixelBuffer {

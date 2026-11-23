@@ -37,6 +37,8 @@ final class AirPodsRingGeometryTests: XCTestCase {
         XCTAssertEqual(rightOnly.gap, .closed)
         XCTAssertTrue(rightOnly.isPartial)
         XCTAssertNil(rightOnly.effect)
+        XCTAssertEqual(AirPodsRingMapper.stripLevels(snapshot: snapshot(main: nil, left: nil, right: 42),
+                                                    ring: rightOnly), [nil, 42])
 
         let leftPlusMain = try state(main: 80, left: 35, right: nil, behavior: .dual)
         XCTAssertEqual(leftPlusMain.segments.map(\.progress), [0.35, 0.35], "The known ear must take precedence over the conflicting main value.")

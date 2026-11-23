@@ -1,4 +1,12 @@
 "menu.version" = "Status Trio %@";
+"statusStrip.layout" = "Вид строки состояния";
+"statusStrip.divider" = "Тонкий разделитель";
+"statusStrip.batteryWordmark" = "Заряд цифрами";
+"statusStrip.capsule" = "Одна капсула";
+"statusStrip.gauge" = "Шкала заряда";
+"statusStrip.unified" = "Три секции";
+"statusStrip.connection" = "Акцент на сети";
+"statusStrip.alerts" = "Предупреждения первыми";
 "menu.settings" = "Настройки…";
 "menu.quit" = "Завершить Status Trio";
 "menu.about" = "О программе «%@»";
@@ -614,19 +622,20 @@
 "settings.wifi.symbolScaleDescription" = "Масштаб значка Wi-Fi внутри кольца состояния от 100% до 180%.";
 "settings.audio.indicatorStyleTitle" = "Стиль индикатора громкости";
 "settings.audio.indicatorStyle" = "Стиль отображения";
-"settings.audio.indicatorStyleDescription" = "Выберите отображение громкости четырьмя точками или сплошной дугой.";
+"settings.audio.indicatorStyleDescription" = "Выберите четыре точки, горизонтальную или вертикальную полоску.";
 "settings.audio.indicatorStyle.dots" = "Точки";
-"settings.audio.indicatorStyle.arc" = "Дуга";
+"settings.audio.indicatorStyle.arc" = "Горизонтальная полоска";
+"settings.audio.indicatorStyle.verticalBar" = "Вертикальная полоска";
 "settings.audio.bottomIndicatorTitle" = "Нижний индикатор";
-"settings.audio.bottomIndicatorDescription" = "Выберите, что показывает полоса под значком. Стиль из четырёх точек или дуги не меняется.";
+"settings.audio.bottomIndicatorDescription" = "Выберите, что отображается в последней ячейке.";
 "settings.audio.bottomIndicatorSource" = "Источник нижнего индикатора";
 "settings.audio.bottomIndicatorSource.volume" = "Громкость";
 "settings.audio.bottomIndicatorSource.wifi" = "Wi-Fi";
 "settings.audio.bottomIndicatorSource.battery" = "Батарея";
 "settings.audio.bottomIndicatorSource.hidden" = "Скрыто";
 "settings.audio.bottomIndicatorSource.metric" = "Пользовательский";
-"settings.audio.bottomIndicatorMetric" = "Пользовательский";
-"settings.audio.bottomIndicatorMetricDescription" = "Выберите, какую аппаратную метрику показывает полоса. Стиль из четырёх точек или дуги не меняется.";
+"settings.audio.bottomIndicatorMetric" = "Аппаратная метрика";
+"settings.audio.bottomIndicatorMetricDescription" = "Последняя ячейка показывает выбранную метрику, её текущее значение и шкалу.";
 "settings.audio.airPodsInlineControlsTitle" = "Управление наушниками";
 "settings.audio.airPodsInlineControls" = "Показывать элементы управления AirPods на панели громкости";
 "settings.audio.airPodsInlineControlsDescription" = "Показывает элементы управления распознаванием разговора, пространственным и адаптивным звуком рядом с вашим выводом AirPods. Отключите, чтобы скрыть эти элементы на основе приватных API.";
@@ -736,6 +745,7 @@
 "settings.appleDevicesAndBattery.description" = "Доверенные и находящиеся рядом устройства Apple с именами отображаются в списке Bluetooth.";
 "settings.appleBackgroundRefresh" = "Обновлять заряд Apple в фоновом режиме";
 "settings.appleBackgroundRefresh.description" = "Обновляет заряд выбранных устройств Apple, когда панель закрыта.";
+"settings.ringContent.airPodsBackground.description" = "Обновляет заряд AirPods даже при закрытой панели.";
 "settings.appleBackgroundRefresh.interval" = "Интервал фонового обновления заряда";
 "settings.appleBackgroundRefresh.intervalValue" = "%d мин.";
 

@@ -228,6 +228,38 @@ final class BluetoothDemandLifecycleTests: XCTestCase {
         fixture.store.stop()
     }
 
+    func testAirPodsIconReadsConnectedBatteryOnlyAfterOptInAndReleasesOnSourceChange() async {
+        let fixture = makeFixture(authorization: .allowed)
+        fixture.settings.outerRingContent = .airPodsBattery
+        fixture.store.bindBluetoothSettings(fixture.settings)
+        fixture.store.start()
+        defer { fixture.store.stop() }
+        await waitUntil { fixture.reader.readCount == 1 }
+        fixture.reader.complete(.success([
+            BluetoothDevice(id: "AA:BB:CC:DD:EE:FF", name: "AirPods Pro", kind: .audio,
+                            isConnected: true, airPodsModel: .airPodsPro)
+        ]))
+        await waitUntil { fixture.store.bluetoothDevices.devices.count == 1 }
+        XCTAssertEqual(fixture.batteryReader.readCount, 0)
+        fixture.settings.refreshesAppleBatteriesInBackground = true
+        await waitUntil { fixture.batteryReader.readCount > 0 }
+        XCTAssertGreaterThan(fixture.batteryReader.readCount, 0)
+        fixture.settings.outerRingContent = .systemBattery
+        XCTAssertFalse(fixture.store.bluetoothDevices.isActive)
+        XCTAssertEqual(fixture.cache.activeReaderCount, 0)
+    }
+
+    func testAirPodsIconDoesNotRequestAnUndeterminedBluetoothGrant() {
+        let fixture = makeFixture(authorization: .notDetermined)
+        fixture.settings.outerRingContent = .airPodsBattery
+        fixture.settings.refreshesAppleBatteriesInBackground = true
+        fixture.store.bindBluetoothSettings(fixture.settings)
+        fixture.store.start()
+        defer { fixture.store.stop() }
+        XCTAssertEqual(fixture.stateMonitor.startCount, 0)
+        XCTAssertEqual(fixture.batteryReader.readCount, 0)
+    }
+
     func testBluetoothOutputKeepsListeningModeReadAvailable() async {
         let fixture = makeFixture(authorization: .allowed)
         fixture.settings.setPopupSection(.volume, enabled: true)

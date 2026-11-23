@@ -10,14 +10,28 @@ import Testing
 @MainActor
 struct DockChargingSplitParityTests {
     @Test func compositedSplitMatchesTheSinglePassTile() throws {
-        let scene = chargingScene()
+        try assertSplitMatchesSinglePass(scene: chargingScene(), style: .dark)
+    }
+
+    @Test func linearLayoutsCompositeWithoutDoubleTintingTheClearTile() throws {
+        for layout in StatusStripLayout.allCases {
+            var scene = chargingScene(batteryOptions: BatteryIconOptions(
+                textScale: SettingsStore.batterySymbolScaleRange.upperBound * BatteryIconOptions.defaultTextScale,
+                ringStrokeScale: RingStrokeStyle.bold.scale
+            ))
+            scene.statusStrip = StatusStrip(layout: layout, previewScene: scene)
+            try assertSplitMatchesSinglePass(scene: scene, style: .clear)
+        }
+    }
+
+    private func assertSplitMatchesSinglePass(scene: IconSceneState, style: DockIconBackgroundStyle) throws {
         let phase = ChargingEffectPhase(step: 12, stepsPerCycle: 36, kind: .steady)
         let pixelLength = 512
 
         let single = try #require(
             DockIconRenderer.tileImage(
                 scene: scene,
-                backgroundStyle: .dark,
+                backgroundStyle: style,
                 pixelLength: pixelLength,
                 phase: phase
             )
@@ -25,7 +39,7 @@ struct DockChargingSplitParityTests {
         let base = try #require(
             DockIconRenderer.animationBaseImage(
                 scene: scene,
-                backgroundStyle: .dark,
+                backgroundStyle: style,
                 pixelLength: pixelLength
             )
         )
@@ -33,7 +47,7 @@ struct DockChargingSplitParityTests {
             DockIconRenderer.chargingEffectImage(
                 scene: scene,
                 phase: phase,
-                backgroundStyle: .dark,
+                backgroundStyle: style,
                 pixelLength: pixelLength
             )
         )
@@ -94,7 +108,7 @@ struct DockChargingSplitParityTests {
         #expect(DockIconRenderer.chargingEffectRect(scene: scene, pixelLength: 512) == nil)
     }
 
-    private func chargingScene() -> IconSceneState {
+    private func chargingScene(batteryOptions: BatteryIconOptions = .standard) -> IconSceneState {
         IconPresentationMapper.scene(
             inputs: IconPresentationInputs(
                 snapshot: StatusSnapshot(
@@ -111,7 +125,8 @@ struct DockChargingSplitParityTests {
                 ),
                 audioIcon: nil
             ),
-            configuration: .standard
+            configuration: IconPresentationConfiguration(battery: batteryOptions, connection: .standard,
+                                                         volume: .standard, bluetooth: .standard)
         )
     }
 

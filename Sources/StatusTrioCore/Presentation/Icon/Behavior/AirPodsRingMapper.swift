@@ -66,6 +66,12 @@ enum AirPodsRingMapper {
         )
     }
 
+    static func stripLevels(snapshot: AirPodsBatteryIconSnapshot?, ring: OuterRingState?) -> [Int?] {
+        guard let snapshot, let ring else { return [] }
+        if ring.layout == .leftRight { return [valid(snapshot.left), valid(snapshot.right)] }
+        return ring.segments.prefix(1).map { Int(($0.progress * 100).rounded()) }
+    }
+
     static func isFresh(_ snapshot: AirPodsBatteryIconSnapshot, at now: Date) -> Bool {
         let age = now.timeIntervalSince(snapshot.observedAt)
         return age >= 0 && age <= AirPodsBatteryIconSnapshot.freshnessInterval

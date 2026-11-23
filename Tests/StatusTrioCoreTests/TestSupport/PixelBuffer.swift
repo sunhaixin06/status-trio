@@ -103,6 +103,13 @@ struct PixelBuffer {
         }
     }
 
+    func containsColor(_ color: CGColor, tolerance: Double = 0.08, minimumAlpha: Double = 0.9) -> Bool {
+        guard let rgb = color.converted(to: CGColorSpaceCreateDeviceRGB(), intent: .defaultIntent, options: nil),
+              let components = rgb.components, components.count == 4 else { return false }
+        return containsColor(red: components[0], green: components[1], blue: components[2],
+                             tolerance: tolerance, minimumAlpha: minimumAlpha)
+    }
+
     func averageOpaqueLuminance(minimumAlpha: UInt8 = 200) -> Double? {
         var luminanceSum = 0.0
         var pixelCount = 0

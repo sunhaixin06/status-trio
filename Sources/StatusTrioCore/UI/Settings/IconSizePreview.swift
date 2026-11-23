@@ -6,7 +6,7 @@ struct IconSizePreview: View {
     let options: BatteryIconOptions
 
     var body: some View {
-        Image(nsImage: StatusIconPreviewCache.shared.image(
+        Image(nsImage: StatusIconPreviewCache.shared.stripImage(
             scene: IconPreviewScene.make(
                 status: .placeholder,
                 configuration: IconPresentationConfiguration(
@@ -19,7 +19,9 @@ struct IconSizePreview: View {
             size: size,
             scale: NSScreen.main?.backingScaleFactor ?? 2
         ) ?? NSImage(size: NSSize(width: size, height: size)))
-        .frame(width: CGFloat(SettingsStore.iconSizeRange.upperBound))
+        .resizable()
+        .scaledToFit()
+        .frame(width: 76, height: CGFloat(SettingsStore.iconSizeRange.upperBound))
         .accessibilityHidden(true)
     }
 }

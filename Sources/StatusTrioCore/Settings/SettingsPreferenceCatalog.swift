@@ -97,6 +97,7 @@ enum SettingsPreferenceCatalog {
 
     private static var iconPreferences: [Preference] {
         [
+            enumeration("statusStripLayout", \.statusStripLayout, default: .unified),
             number("iconSize", \.iconSize, default: SettingsStore.defaultIconSize, range: SettingsStore.iconSizeRange),
             number("batterySymbolScale", \.batterySymbolScale,
                    default: SettingsStore.defaultBatterySymbolScale, range: SettingsStore.batterySymbolScaleRange),

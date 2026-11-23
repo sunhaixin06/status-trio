@@ -14,6 +14,7 @@ struct IconSceneState: Equatable, Hashable, Sendable {
     /// `isVolumeValueChange` can tell a genuine volume change from a Wi-Fi or
     /// battery update, and so a source change invalidates the Dock cache.
     let bottomIndicatorSource: BottomIndicatorSource
+    var statusStrip: StatusStrip? = nil
 
     init(
         outerRing: OuterRingState? = nil,
@@ -21,7 +22,8 @@ struct IconSceneState: Equatable, Hashable, Sendable {
         footer: FooterState? = nil,
         statusColors: BatteryStatusColors = .standard,
         bluetoothIconColor: BluetoothIconColorSelection = .default,
-        bottomIndicatorSource: BottomIndicatorSource = .volume
+        bottomIndicatorSource: BottomIndicatorSource = .volume,
+        statusStrip: StatusStrip? = nil
     ) {
         self.outerRing = outerRing
         self.center = center
@@ -29,6 +31,7 @@ struct IconSceneState: Equatable, Hashable, Sendable {
         self.statusColors = statusColors
         self.bluetoothIconColor = bluetoothIconColor
         self.bottomIndicatorSource = bottomIndicatorSource
+        self.statusStrip = statusStrip
     }
 }
 
@@ -41,16 +44,20 @@ extension IconSceneState {
             outerRing: OuterRingState(
                 segments: ring.segments,
                 gap: ring.gap,
+                layout: ring.layout,
+                isPartial: ring.isPartial,
                 accessory: ring.accessory,
                 effect: nil,
                 strokeScale: ring.strokeScale,
+                inactiveColor: ring.inactiveColor,
                 gapProgressMode: ring.gapProgressMode
             ),
             center: center,
             footer: footer,
             statusColors: statusColors,
             bluetoothIconColor: bluetoothIconColor,
-            bottomIndicatorSource: bottomIndicatorSource
+            bottomIndicatorSource: bottomIndicatorSource,
+            statusStrip: statusStrip
         )
     }
 
@@ -168,11 +175,16 @@ extension IconSceneState {
     ///
     /// It is a value change only when the source is volume on both scenes, the
     /// ring, centre and per-role colours are untouched, and the footer kept its
-    /// kind, colour and stroke: a dots↔arc switch, a stroke change, a colour
+    /// style, colour and stroke: a style switch, a stroke change, a colour
     /// change, a source switch, or any ring/centre change is a settings or
     /// device change and stays on the immediate path. A Wi-Fi or battery footer
     /// update is never a volume change, so it must not be rate-limited as one.
     func isVolumeValueChange(from previous: IconSceneState) -> Bool {
+        if let statusStrip, let old = previous.statusStrip {
+            guard statusStrip.hasSameNonAudioContent(as: old), statusStrip.muted == old.muted else { return false }
+        } else if statusStrip != previous.statusStrip {
+            return false
+        }
         guard bottomIndicatorSource == .volume,
               previous.bottomIndicatorSource == .volume,
               outerRing == previous.outerRing,
@@ -189,6 +201,7 @@ extension IconSceneState {
         case let (.some(.arc(old)), .some(.arc(new))):
             return old.color == new.color
                 && old.strokeScale == new.strokeScale
+                && old.isVertical == new.isVertical
         default:
             return false
         }

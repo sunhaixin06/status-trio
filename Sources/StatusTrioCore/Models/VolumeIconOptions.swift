@@ -3,6 +3,7 @@ import Foundation
 public enum VolumeDisplayStyle: String, CaseIterable, Identifiable, Codable, Sendable {
     case dots
     case arc
+    case verticalBar
 
     public var id: String { rawValue }
 }

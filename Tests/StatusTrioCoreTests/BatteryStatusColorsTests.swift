@@ -39,6 +39,39 @@ struct BatteryStatusColorsTests {
         }
     }
 
+    @Test func defaultAccentsAdaptWithoutReplacingStoredOverrides() throws {
+        let light = BatteryStatusColorPalette.resolved(appearance: try #require(NSAppearance(named: .aqua)), increasedContrast: false)
+        let dark = BatteryStatusColorPalette.resolved(appearance: try #require(NSAppearance(named: .darkAqua)), increasedContrast: false)
+        let custom = BatteryStatusColorSelection.custom(.init(hue: 0.85, saturation: 0.7, brightness: 0.6))
+        let overrides = BatteryStatusColors(charging: custom)
+        #expect(light.dischargingIsSystem && dark.dischargingIsSystem)
+        for role in BatteryStatusColorRole.allCases where role != .discharging {
+            #expect(light.color(for: role) != dark.color(for: role))
+        }
+        for isDark in [false, true] {
+            let baseline = isDark ? dark : light
+            let applied = baseline.applying(overrides, darkAppearance: isDark)
+            #expect(applied.charging == BatteryStatusColorResolver.resolution(
+                for: .charging, selection: custom, darkAppearance: isDark
+            ).color)
+            #expect(applied.charging != baseline.charging)
+            #expect(applied.critical == baseline.critical)
+        }
+    }
+
+    @Test(arguments: [false, true])
+    func increasedContrastUsesSystemSemanticAccents(isDark: Bool) throws {
+        let appearance = try #require(NSAppearance(named: isDark ? .darkAqua : .aqua))
+        let palette = BatteryStatusColorPalette.resolved(appearance: appearance, increasedContrast: true)
+        let applied = palette.applying(BatteryStatusColors(discharging: .preset(.rose)), darkAppearance: isDark)
+        appearance.performAsCurrentDrawingAppearance {
+            for (role, color) in [(BatteryStatusColorRole.charging, NSColor.systemGreen),
+                                  (.lowPower, .systemYellow), (.highPower, .systemBlue), (.critical, .systemRed)] {
+                #expect(applied.color(for: role) == (color.usingColorSpace(.deviceRGB) ?? color).cgColor)
+            }
+        }
+    }
+
     @Test func settingsPersistAndPublishDeliveredSelectionBeforeStoreChanges() throws {
         let suite = "BatteryStatusColorsTests.\(UUID().uuidString)"
         let defaults = try #require(UserDefaults(suiteName: suite))
@@ -49,7 +82,9 @@ struct BatteryStatusColorsTests {
         let subscription = settings.iconAppearancePublisher.sink { delivered.append($0.batteryOptions.batteryStatusColors) }
         defer { subscription.cancel() }
         for role in BatteryStatusColorRole.allCases {
-            settings.batteryStatusColors.setSelection(.preset(.rose), for: role)
+            let selection: BatteryStatusColorSelection = role == .charging
+                ? .custom(.init(hue: 0.85, saturation: 0.7, brightness: 0.6)) : .preset(.rose)
+            settings.batteryStatusColors.setSelection(selection, for: role)
             #expect(delivered.last == settings.batteryStatusColors)
         }
         #expect(SettingsStore(defaults: defaults).batteryStatusColors == settings.batteryStatusColors)

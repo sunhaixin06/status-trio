@@ -90,6 +90,7 @@ struct DockIconPreviewWiringTests {
         store.showsBatteryPercentage = false
         store.usesBatteryStatusColors = false
         store.connectionCenterSource = .bluetoothDevice
+        store.statusStripLayout = .connection
 
         let status = MenuBarStatus(snapshot: harness.statusStore.snapshot)
         let appearance = StatusIconAppearance(settings: store)
@@ -99,25 +100,23 @@ struct DockIconPreviewWiringTests {
             isDarkAppearance: false
         )
         let previewLength = DockIconPreviewMetrics.pixelLength(forPointSize: 30)
-        let dockKey = DockIconRenderKey(
-            scene: makeIconPresentationScene(
+        var liveScene = makeIconPresentationScene(
                 status: status,
                 battery: appearance.batteryOptions,
                 connection: appearance.connectionOptions,
                 volume: appearance.volumeOptions,
                 bluetooth: appearance.bluetoothAudioOptions
-            ),
+            )
+        liveScene.statusStrip = StatusStrip(layout: store.statusStripLayout, snapshot: harness.statusStore.snapshot,
+                                            threshold: appearance.batteryOptions.criticalThreshold,
+                                            prioritizesNetworkErrors: appearance.connectionOptions.prioritizesNetworkErrors)
+        let dockKey = DockIconRenderKey(
+            scene: liveScene,
             backgroundStyle: backgroundStyle,
             pixelLength: DockIconRenderer.pixelSize
         )
         let dockKeyAtPreviewLength = DockIconRenderKey(
-            scene: makeIconPresentationScene(
-                status: status,
-                battery: appearance.batteryOptions,
-                connection: appearance.connectionOptions,
-                volume: appearance.volumeOptions,
-                bluetooth: appearance.bluetoothAudioOptions
-            ),
+            scene: liveScene,
             backgroundStyle: backgroundStyle,
             pixelLength: previewLength
         )
