@@ -82,9 +82,10 @@ extension SettingsStore {
                 hardwareUploadCapMbps: appearance.hardwareUploadCapMbps
             )
         }
-        .combineLatest($statusStripLayout) { settings, layout in
+        .combineLatest($statusStripLayout, $footerMetricTextScale) { settings, layout, metricTextScale in
             var settings = settings
             settings.statusStripLayout = layout
+            settings.footerMetricTextScale = StatusStrip.clampedMetricTextScale(metricTextScale)
             return settings
         }
         .removeDuplicates()

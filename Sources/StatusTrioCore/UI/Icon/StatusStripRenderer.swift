@@ -51,7 +51,7 @@ enum StatusStripRenderer {
         let dark = appearance.bestMatch(from: [.aqua, .darkAqua]) == .darkAqua
         return bitmap(size: CGSize(width: 43, height: height), scale: scale) { context in
             painter(scene: scene, strip: strip, in: context, dark: dark, appearance: appearance)
-                .indicator(at: 11, y: height / 2, width: 18)
+                .indicator(at: 11, y: height / 2, width: 18, metricLane: 3...40)
         }
     }
 
@@ -166,7 +166,7 @@ enum StatusStripRenderer {
                                      stroke: batteryStroke, phase: phase) }
                 return
             }
-            indicator(at: w - 33, y: 12, width: 18)
+            indicator(at: w - 33, y: 12, width: 18, metricLane: (w - 42)...(w - 5))
         }
 
         func drawDock(phase: ChargingEffectPhase?) {
@@ -238,7 +238,8 @@ enum StatusStripRenderer {
                 text("LAN", x: 40, y: 24, size: 9.5, maxWidth: 22, tint: ink)
             } else { center(at: strip.layout == .connection ? 30 : 23, y: 24, symbolSize: 21) }
             indicator(at: strip.layout == .connection ? 66 : 59, y: 24,
-                      width: strip.layout == .connection ? 14 : 19, symbolSize: 18, verticalHeight: 16)
+                      width: strip.layout == .connection ? 14 : 19,
+                      metricLane: (strip.layout == .connection ? 58 : 48)...89, verticalHeight: 16)
         }
 
         func color(_ role: IconColorRole) -> CGColor {
@@ -318,26 +319,15 @@ enum StatusStripRenderer {
             }
         }
 
-        func indicator(at x: CGFloat, y: CGFloat, width: CGFloat, symbolSize: CGFloat = 18,
-                       verticalHeight: CGFloat = 13) {
+        func indicator(at x: CGFloat, y: CGFloat, width: CGFloat, metricLane: ClosedRange<CGFloat>,
+                       symbolSize: CGFloat = 18, verticalHeight: CGFloat = 13) {
             let name: String
             switch scene.bottomIndicatorSource {
             case .hidden: return
             case .wifi: name = "wifi"
             case .battery: name = "battery.75percent"
             case .metric:
-                let tint = color(scene.footer?.colorRole ?? .primary)
-                let value = scene.footer?.metricReading ?? "\u{2013}"
-                let icon = strip.footerMetric.map { HardwareRingMapper.topMarkerSymbol(for: $0) } ?? "waveform.path"
-                symbol(icon, x: x - 3, y: y, size: 12, tint: tint, fallback: "waveform.path")
-                let readingX = x + 15
-                if case let .arc(bar) = scene.footer, bar.isVertical {
-                    text(value, x: readingX - 1, y: y, size: 9, maxWidth: 22, tint: ink)
-                    footer(x: readingX + 7, centerY: y, width: width, verticalHeight: verticalHeight)
-                } else {
-                    text(value, x: readingX, y: y + 3.5, size: 9.5, maxWidth: 29, tint: ink)
-                    footer(x: readingX - width / 2, centerY: y - 4, width: width, verticalHeight: verticalHeight)
-                }
+                metricIndicator(in: metricLane, y: y, width: width, verticalHeight: verticalHeight)
                 return
             case .volume:
                 name = if strip.muted { "speaker.slash.fill" }
@@ -348,6 +338,33 @@ enum StatusStripRenderer {
             symbol(name, x: x, y: y, size: symbolSize, tint: color(scene.footer?.colorRole ?? .primary),
                    weight: scene.bottomIndicatorSource == .volume ? .semibold : nil)
             footer(x: x + symbolSize / 2 + 2, centerY: y, width: width, verticalHeight: verticalHeight)
+        }
+
+        func metricIndicator(in lane: ClosedRange<CGFloat>, y: CGFloat, width: CGFloat, verticalHeight: CGFloat) {
+            let midX = (lane.lowerBound + lane.upperBound) / 2
+            let isVertical = if case let .arc(bar) = scene.footer { bar.isVertical } else { false }
+            // Memory pressure reports a discrete level through the gauge, not a numeric reading.
+            if strip.footerMetric == .memoryPressure, MemoryPressureFooterMapper.title(for: scene.footer) != nil {
+                footer(x: midX - (isVertical ? 5 : width / 2), centerY: y, width: width, verticalHeight: verticalHeight)
+                return
+            }
+            let value = scene.footer?.metricReading ?? "\u{2013}"
+            // Fit the largest setting first so long units retain the slider's full range.
+            let maxScale = StatusStrip.metricTextScaleRange.upperBound
+            let fontSize: CGFloat = 9.5 * maxScale
+            let relativeScale = strip.footerMetricTextScale / maxScale
+            if isVertical {
+                let barX = lane.upperBound - 3
+                // Reserve room for the thickest bar and its gap at every reading size.
+                let readingWidth = barX - 5 - lane.lowerBound
+                text(value, x: lane.lowerBound + readingWidth / 2, y: y, size: fontSize,
+                     maxWidth: readingWidth, tint: ink, relativeScale: relativeScale)
+                footer(x: barX - 5, centerY: y, width: width, verticalHeight: verticalHeight)
+            } else {
+                text(value, x: midX, y: y + 4.5, size: fontSize, maxWidth: lane.upperBound - lane.lowerBound,
+                     tint: ink, relativeScale: relativeScale)
+                footer(x: midX - width / 2, centerY: y - 4.5, width: width, verticalHeight: verticalHeight)
+            }
         }
 
         func center(at x: CGFloat, y: CGFloat, symbolSize: CGFloat = 15, maxWidth: CGFloat = 24) {
@@ -488,14 +505,15 @@ enum StatusStripRenderer {
             context.fillPath()
         }
 
-        func text(_ text: String, x: CGFloat, y: CGFloat, size: CGFloat, maxWidth: CGFloat, tint: CGColor) {
+        func text(_ text: String, x: CGFloat, y: CGFloat, size: CGFloat, maxWidth: CGFloat, tint: CGColor,
+                  relativeScale: CGFloat = 1) {
             let line = CTLineCreateWithAttributedString(NSAttributedString(string: text, attributes: [
                 .font: NSFont.monospacedDigitSystemFont(ofSize: size, weight: .semibold),
                 NSAttributedString.Key(kCTForegroundColorAttributeName as String): tint
             ]))
             let bounds = CTLineGetBoundsWithOptions(line, [.useGlyphPathBounds])
             guard !bounds.isEmpty else { return }
-            let scale = min(1, maxWidth / bounds.width)
+            let scale = min(1, maxWidth / bounds.width) * relativeScale
             context.saveGState()
             context.translateBy(x: x, y: y)
             context.scaleBy(x: scale, y: scale)

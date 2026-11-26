@@ -66,6 +66,7 @@ final class SettingsStore: ObservableObject {
     static let defaultIconSize: Double = 24
     static let iconSizeDefaultsKey = "menuBarIconSize"
     static let statusStripLayoutDefaultsKey = "statusStripLayout"
+    nonisolated static let footerMetricTextScaleDefaultsKey = "footerMetricTextScale"
 
     static let batteryCriticalThresholdRange: ClosedRange<Double> = 0...100
     /// The battery level at which the automation (#246) switches Low Power Mode
@@ -121,6 +122,7 @@ final class SettingsStore: ObservableObject {
     static let monochromeChargingRingDefaultsKey = "monochromeChargingRing"
     static let batteryStatusColorsDischargingDefaultsKey = "batteryStatusColors.discharging"
     static let batteryStatusColorsChargingDefaultsKey = "batteryStatusColors.charging"
+    static let batteryStatusColorsConnectedDefaultsKey = "batteryStatusColors.connected"
     static let batteryStatusColorsLowPowerDefaultsKey = "batteryStatusColors.lowPower"
     static let batteryStatusColorsHighPowerDefaultsKey = "batteryStatusColors.highPower"
     static let batteryStatusColorsCriticalDefaultsKey = "batteryStatusColors.critical"
@@ -212,6 +214,9 @@ final class SettingsStore: ObservableObject {
     static let airPodsRingUsesDualRingDefaultsKey = "airPodsRingUsesDualRing"
     static let showsAirPodsTopSymbolInRingDefaultsKey = "showsAirPodsTopSymbolInRing"
     static let airPodsRingFallbackDefaultsKey = "airPodsRingFallback"
+    static let airPodsLeftArcColorDefaultsKey = "airPodsLeftArcColor"
+    static let airPodsRightArcColorDefaultsKey = "airPodsRightArcColor"
+    static let airPodsSingleArcColorDefaultsKey = "airPodsSingleArcColor"
     static let hardwareRingConfigurationDefaultsKey = "hardwareRingConfigurationV1"
     static let hardwareMonitorMetricColorsDefaultsKey = "hardwareMonitorMetricColorsV1"
     static let hardwareDiskRingColorDefaultsKey = "hardwareDiskRingColorV1"
@@ -219,6 +224,13 @@ final class SettingsStore: ObservableObject {
     static let hardwareUploadCapMbpsDefaultsKey = "hardwareUploadCapMbps"
     static let hardwareBackgroundHistoryEnabledDefaultsKey = "hardwareBackgroundHistoryEnabled"
     static let hardwarePanelRefreshSecondsDefaultsKey = "hardwarePanelRefreshSeconds"
+    static let hardwareCPUUsageRefreshSecondsDefaultsKey = "hardwareCPUUsageRefreshSeconds"
+    static let hardwareGPUUsageRefreshSecondsDefaultsKey = "hardwareGPUUsageRefreshSeconds"
+    static let hardwareMemoryRefreshSecondsDefaultsKey = "hardwareMemoryRefreshSeconds"
+    static let hardwareNetworkRefreshSecondsDefaultsKey = "hardwareNetworkRefreshSeconds"
+    static let hardwareTemperatureRefreshSecondsDefaultsKey = "hardwareTemperatureRefreshSeconds"
+    static let hardwareDiskRefreshSecondsDefaultsKey = "hardwareDiskRefreshSeconds"
+    static let hardwareTopAppsRefreshSecondsDefaultsKey = "hardwareTopAppsRefreshSeconds"
     static let hardwareHistoryWindowMinutesDefaultsKey = "hardwareHistoryWindowMinutes"
     static let showsHardwareTopAppsDefaultsKey = "showsHardwareTopApps"
     static let hardwareNetworkChartFixedScaleDefaultsKey = "hardwareNetworkChartFixedScale"
@@ -228,6 +240,9 @@ final class SettingsStore: ObservableObject {
     static let enabledHardwareSummaryMetricsDefaultsKey = "enabledHardwareSummaryMetricsV1"
     static let memoryRingDisplayModeDefaultsKey = "memoryRingDisplayModeV1"
     static let ssdRingDisplayModeDefaultsKey = "ssdRingDisplayModeV1"
+    static let hardwareRingSplitGapProgressDefaultsKey = "hardwareRingSplitGapProgress"
+    static let hardwareSSDIncludeExternalInPercentDefaultsKey = "hardwareSSDIncludeExternalInPercentV1"
+    static let hardwareSSDExternalVolumePathsDefaultsKey = "hardwareSSDExternalVolumePathsV1"
     static let hardwareTemperatureMonitoringEnabledDefaultsKey = "hardwareTemperatureMonitoringEnabledV1"
     static let cpuRingCenterContentDefaultsKey = "cpuRingCenterContentV1"
     static let gpuRingCenterContentDefaultsKey = "gpuRingCenterContentV1"
@@ -239,11 +254,13 @@ final class SettingsStore: ObservableObject {
     /// Default on; turning it off leaves only what the menu-bar or Dock icon
     /// already samples.
     static let defaultHardwareBackgroundHistoryEnabled: Bool = false
-    /// Refresh cadence for the status-panel hardware summary while it is open.
-    /// 1 s preserves the historical fastest cadence; slower options trade
-    /// freshness for fewer reads.
-    static let hardwarePanelRefreshOptions: [Int] = Array(1...8)
-    static let defaultHardwarePanelRefreshSeconds: Int = 1
+    /// Legacy single panel refresh cadence key, read only to migrate old installs
+    /// onto the per-group settings; no longer has a UI or export entry.
+    /// (defaults-key constant lives with the other keys above.)
+    /// Cadence for the high-usage app list; one value drives every list and is
+    /// independent of the per-group panel card cadence. 1–30 s, default 4 s.
+    static let hardwareTopAppsRefreshOptions: [Int] = Array(1...30)
+    static let defaultHardwareTopAppsRefreshSeconds: Int = 4
     /// Detail-chart history window in whole minutes. Bounded to 1–5 minutes so
     /// the in-memory buffer stays small; three minutes matches the previous
     /// fixed default.
@@ -260,7 +277,7 @@ final class SettingsStore: ObservableObject {
     /// Which hardware-monitor metric the `.metric` bottom source draws. Kept
     /// beside `bottomIndicatorSource` so the concrete metric can change without
     /// touching the source enum.
-    static let defaultBottomIndicatorMetric: HardwareMonitorMetric = .cpuUsage
+    static let defaultBottomIndicatorMetric: BottomIndicatorMetric = .cpuUsage
     static let bottomIndicatorMetricDefaultsKey = "bottomIndicatorMetric"
     /// The dot/arc style used by the `.metric` bottom source. It defaults to the
     /// arc because a continuous fill reads the hardware metrics better than four
@@ -540,6 +557,17 @@ final class SettingsStore: ObservableObject {
         didSet { persist(statusStripLayout.rawValue, forKey: Self.statusStripLayoutDefaultsKey) }
     }
 
+    @Published var footerMetricTextScale: Double {
+        didSet {
+            let clamped = StatusStrip.clampedMetricTextScale(footerMetricTextScale)
+            guard clamped == footerMetricTextScale else {
+                footerMetricTextScale = clamped
+                return
+            }
+            persist(clamped, forKey: Self.footerMetricTextScaleDefaultsKey)
+        }
+    }
+
     @Published var iconSize: Double {
         didSet {
             let clamped = Self.clampedIconSize(iconSize)
@@ -564,6 +592,12 @@ final class SettingsStore: ObservableObject {
     func setBatterySymbolScaleFromSlider(_ value: Double) {
         isCoalescingSliderWrite = true
         batterySymbolScale = value
+        isCoalescingSliderWrite = false
+    }
+
+    func setFooterMetricTextScaleFromSlider(_ value: Double) {
+        isCoalescingSliderWrite = true
+        footerMetricTextScale = value
         isCoalescingSliderWrite = false
     }
 
@@ -822,6 +856,10 @@ final class SettingsStore: ObservableObject {
             defaults.set(
                 batteryStatusColors.charging.storageValue,
                 forKey: Self.batteryStatusColorsChargingDefaultsKey
+            )
+            defaults.set(
+                batteryStatusColors.connected.storageValue,
+                forKey: Self.batteryStatusColorsConnectedDefaultsKey
             )
             defaults.set(
                 batteryStatusColors.lowPower.storageValue,
@@ -1299,6 +1337,18 @@ final class SettingsStore: ObservableObject {
         }
     }
 
+    /// AirPods ring arc colours (#388): left ear, right ear, and the single-arc
+    /// view. Defaults keep the historical look (left blue, right/single primary).
+    @Published var airPodsLeftArcColor: BluetoothIconColorSelection = .systemBlue {
+        didSet { defaults.set(airPodsLeftArcColor.storageValue, forKey: Self.airPodsLeftArcColorDefaultsKey) }
+    }
+    @Published var airPodsRightArcColor: BluetoothIconColorSelection = .primary {
+        didSet { defaults.set(airPodsRightArcColor.storageValue, forKey: Self.airPodsRightArcColorDefaultsKey) }
+    }
+    @Published var airPodsSingleArcColor: BluetoothIconColorSelection = .primary {
+        didSet { defaults.set(airPodsSingleArcColor.storageValue, forKey: Self.airPodsSingleArcColorDefaultsKey) }
+    }
+
     /// Internal configuration of the "System Monitoring" (`hardwareMonitor`)
     /// ring source. Persisted as JSON; projected into `behaviors.hardwareRing`.
     @Published var hardwareRingConfiguration: HardwareRingConfiguration = .default {
@@ -1381,15 +1431,98 @@ final class SettingsStore: ObservableObject {
         }
     }
 
-    /// Panel-open refresh cadence in whole seconds; one of the shipped options.
-    @Published var hardwarePanelRefreshSeconds: Int = SettingsStore.defaultHardwarePanelRefreshSeconds {
+    /// Per-group panel/background refresh cadence in whole seconds; each is one
+    /// of its group's shipped options (its metric floor … 8 s). A slower value
+    /// only slows the panel-side consumer; icons keep their own fast cadence.
+    @Published var hardwareCPUUsageRefreshSeconds: Int = HardwareRefreshGroup.cpuUsage.defaultSeconds {
         didSet {
-            guard Self.hardwarePanelRefreshOptions.contains(hardwarePanelRefreshSeconds) else {
-                hardwarePanelRefreshSeconds = Self.defaultHardwarePanelRefreshSeconds
+            guard HardwareRefreshGroup.cpuUsage.options.contains(hardwareCPUUsageRefreshSeconds) else {
+                hardwareCPUUsageRefreshSeconds = HardwareRefreshGroup.cpuUsage.defaultSeconds
                 return
             }
-            defaults.set(hardwarePanelRefreshSeconds, forKey: Self.hardwarePanelRefreshSecondsDefaultsKey)
+            defaults.set(hardwareCPUUsageRefreshSeconds, forKey: Self.hardwareCPUUsageRefreshSecondsDefaultsKey)
         }
+    }
+
+    @Published var hardwareGPUUsageRefreshSeconds: Int = HardwareRefreshGroup.gpuUsage.defaultSeconds {
+        didSet {
+            guard HardwareRefreshGroup.gpuUsage.options.contains(hardwareGPUUsageRefreshSeconds) else {
+                hardwareGPUUsageRefreshSeconds = HardwareRefreshGroup.gpuUsage.defaultSeconds
+                return
+            }
+            defaults.set(hardwareGPUUsageRefreshSeconds, forKey: Self.hardwareGPUUsageRefreshSecondsDefaultsKey)
+        }
+    }
+
+    @Published var hardwareMemoryRefreshSeconds: Int = HardwareRefreshGroup.memory.defaultSeconds {
+        didSet {
+            guard HardwareRefreshGroup.memory.options.contains(hardwareMemoryRefreshSeconds) else {
+                hardwareMemoryRefreshSeconds = HardwareRefreshGroup.memory.defaultSeconds
+                return
+            }
+            defaults.set(hardwareMemoryRefreshSeconds, forKey: Self.hardwareMemoryRefreshSecondsDefaultsKey)
+        }
+    }
+
+    @Published var hardwareNetworkRefreshSeconds: Int = HardwareRefreshGroup.network.defaultSeconds {
+        didSet {
+            guard HardwareRefreshGroup.network.options.contains(hardwareNetworkRefreshSeconds) else {
+                hardwareNetworkRefreshSeconds = HardwareRefreshGroup.network.defaultSeconds
+                return
+            }
+            defaults.set(hardwareNetworkRefreshSeconds, forKey: Self.hardwareNetworkRefreshSecondsDefaultsKey)
+        }
+    }
+
+    @Published var hardwareTemperatureRefreshSeconds: Int = HardwareRefreshGroup.temperature.defaultSeconds {
+        didSet {
+            guard HardwareRefreshGroup.temperature.options.contains(hardwareTemperatureRefreshSeconds) else {
+                hardwareTemperatureRefreshSeconds = HardwareRefreshGroup.temperature.defaultSeconds
+                return
+            }
+            defaults.set(hardwareTemperatureRefreshSeconds, forKey: Self.hardwareTemperatureRefreshSecondsDefaultsKey)
+        }
+    }
+
+    @Published var hardwareDiskRefreshSeconds: Int = HardwareRefreshGroup.disk.defaultSeconds {
+        didSet {
+            guard HardwareRefreshGroup.disk.options.contains(hardwareDiskRefreshSeconds) else {
+                hardwareDiskRefreshSeconds = HardwareRefreshGroup.disk.defaultSeconds
+                return
+            }
+            defaults.set(hardwareDiskRefreshSeconds, forKey: Self.hardwareDiskRefreshSecondsDefaultsKey)
+        }
+    }
+
+    /// Cadence for the high-usage app list; one value drives every list and is
+    /// decoupled from the per-group panel card cadence.
+    @Published var hardwareTopAppsRefreshSeconds: Int = SettingsStore.defaultHardwareTopAppsRefreshSeconds {
+        didSet {
+            guard Self.hardwareTopAppsRefreshOptions.contains(hardwareTopAppsRefreshSeconds) else {
+                hardwareTopAppsRefreshSeconds = Self.defaultHardwareTopAppsRefreshSeconds
+                return
+            }
+            defaults.set(hardwareTopAppsRefreshSeconds, forKey: Self.hardwareTopAppsRefreshSecondsDefaultsKey)
+        }
+    }
+
+    /// Convenience accessor for the current value of one group.
+    func hardwareRefreshSeconds(for group: HardwareRefreshGroup) -> Int {
+        switch group {
+        case .cpuUsage: return hardwareCPUUsageRefreshSeconds
+        case .gpuUsage: return hardwareGPUUsageRefreshSeconds
+        case .memory: return hardwareMemoryRefreshSeconds
+        case .network: return hardwareNetworkRefreshSeconds
+        case .temperature: return hardwareTemperatureRefreshSeconds
+        case .disk: return hardwareDiskRefreshSeconds
+        }
+    }
+
+    /// Panel/background cadence for a sampled metric, or `nil` for metrics the
+    /// hardware sampler never reads.
+    func hardwarePanelCadence(for id: HardwareMetricID) -> TimeInterval? {
+        guard let group = HardwareRefreshGroup.group(for: id) else { return nil }
+        return TimeInterval(hardwareRefreshSeconds(for: group))
     }
 
     /// How many minutes of hardware history the detail trend keeps. One of the
@@ -1461,6 +1594,51 @@ final class SettingsStore: ObservableObject {
     /// Whether the SSD ring reads as consumed or remaining (default consumed).
     @Published var ssdRingDisplayMode: RingValueDisplayMode {
         didSet { defaults.set(ssdRingDisplayMode.rawValue, forKey: Self.ssdRingDisplayModeDefaultsKey) }
+    }
+
+    /// Whether the four panel rings carry their progress across the top gap
+    /// instead of the gap absorbing it: the visible left half reads 0–50% and
+    /// the right half 50–100%, so the percentage in the gap never hides progress
+    /// (#375). Mirrors the menu-bar battery ring's split-gap option.
+    @Published var hardwareRingSplitGapProgress: Bool = false {
+        didSet {
+            defaults.set(
+                hardwareRingSplitGapProgress,
+                forKey: Self.hardwareRingSplitGapProgressDefaultsKey
+            )
+        }
+    }
+
+    /// Whether the SSD ring's top percentage pools the internal disk with the
+    /// external volumes the user ticked in Settings. Off (default) keeps the
+    /// percentage on the startup volume alone.
+    @Published var hardwareSSDIncludeExternalInPercent: Bool = false {
+        didSet {
+            defaults.set(
+                hardwareSSDIncludeExternalInPercent,
+                forKey: Self.hardwareSSDIncludeExternalInPercentDefaultsKey
+            )
+        }
+    }
+
+    /// Mount paths of the external volumes the user ticked to include in the SSD
+    /// ring's external total (and, when enabled, its percentage). Device-specific
+    /// state, so it is intentionally excluded from settings export/import.
+    @Published var hardwareSSDExternalVolumePaths: Set<String> = [] {
+        didSet {
+            defaults.set(
+                hardwareSSDExternalVolumePaths.sorted(),
+                forKey: Self.hardwareSSDExternalVolumePathsDefaultsKey
+            )
+        }
+    }
+
+    func setHardwareSSDExternalVolume(path: String, included: Bool) {
+        if included {
+            hardwareSSDExternalVolumePaths.insert(path)
+        } else {
+            hardwareSSDExternalVolumePaths.remove(path)
+        }
     }
 
     /// Master switch for CPU/GPU temperature sampling. Off means no SMC or HID
@@ -1584,7 +1762,7 @@ final class SettingsStore: ObservableObject {
     /// Only meaningful in that mode; changing it never rewrites the source or the
     /// persisted slot binding (the metric rides the runtime inputs, not the
     /// binding), but it must still publish so the menu bar re-resolves.
-    @Published var bottomIndicatorMetric: HardwareMonitorMetric {
+    @Published var bottomIndicatorMetric: BottomIndicatorMetric {
         didSet {
             let metric = hardwareTemperatureMonitoringEnabled
                 ? bottomIndicatorMetric : bottomIndicatorMetric.withoutCPUGPUTemperature
@@ -2806,6 +2984,10 @@ final class SettingsStore: ObservableObject {
         self.iconSize = Self.clampedIconSize(storedIconSize ?? Self.defaultIconSize)
         self.statusStripLayout = defaults.string(forKey: Self.statusStripLayoutDefaultsKey)
             .flatMap(StatusStripLayout.init(rawValue:)) ?? .unified
+        self.footerMetricTextScale = StatusStrip.clampedMetricTextScale(
+            (defaults.object(forKey: Self.footerMetricTextScaleDefaultsKey) as? NSNumber)?.doubleValue
+                ?? StatusStrip.defaultMetricTextScale
+        )
         // #315 migration inputs: the old two booleans plus the connected choice.
         let legacyShowsPercentage = defaults.object(forKey: Self.showsBatteryPercentageDefaultsKey) as? Bool ?? true
         self.showsBatteryPowerFlow = defaults.object(forKey: Self.showsBatteryPowerFlowDefaultsKey) as? Bool ?? true
@@ -2936,13 +3118,20 @@ final class SettingsStore: ObservableObject {
         self.monochromeChargingRing =
             defaults.object(forKey: Self.monochromeChargingRingDefaultsKey) as? Bool
         self.simulatesNoBattery = defaults.object(forKey: Self.simulatesNoBatteryDefaultsKey) as? Bool ?? false
+        // #389: `connected` used to share the charging colour. When the key is
+        // absent (an upgrade from a build that merged them), inherit the saved
+        // charging selection instead of jumping back to system, then persist it
+        // so later reads stay stable.
+        let storedChargingColor = defaults.string(forKey: Self.batteryStatusColorsChargingDefaultsKey) ?? "system"
+        let storedConnectedColor =
+            defaults.string(forKey: Self.batteryStatusColorsConnectedDefaultsKey) ?? storedChargingColor
+        let connectedSelection = BatteryStatusColorSelection(storageValue: storedConnectedColor)
         self.batteryStatusColors = BatteryStatusColors(
             discharging: BatteryStatusColorSelection(
                 storageValue: defaults.string(forKey: Self.batteryStatusColorsDischargingDefaultsKey) ?? "system"
             ),
-            charging: BatteryStatusColorSelection(
-                storageValue: defaults.string(forKey: Self.batteryStatusColorsChargingDefaultsKey) ?? "system"
-            ),
+            charging: BatteryStatusColorSelection(storageValue: storedChargingColor),
+            connected: connectedSelection,
             lowPower: BatteryStatusColorSelection(
                 storageValue: defaults.string(forKey: Self.batteryStatusColorsLowPowerDefaultsKey) ?? "system"
             ),
@@ -2953,6 +3142,12 @@ final class SettingsStore: ObservableObject {
                 storageValue: defaults.string(forKey: Self.batteryStatusColorsCriticalDefaultsKey) ?? "system"
             )
         )
+        if defaults.object(forKey: Self.batteryStatusColorsConnectedDefaultsKey) == nil {
+            defaults.set(
+                connectedSelection.storageValue,
+                forKey: Self.batteryStatusColorsConnectedDefaultsKey
+            )
+        }
         self.batterySymbolScale = Self.clampedBatterySymbolScale(
             storedBatterySymbolScale ?? Self.defaultBatterySymbolScale
         )
@@ -3155,7 +3350,7 @@ final class SettingsStore: ObservableObject {
             .flatMap(BottomIndicatorSource.init(rawValue:))
             ?? Self.defaultBottomIndicatorSource
         self.bottomIndicatorMetric = storedBottomIndicatorMetric
-            .flatMap(HardwareMonitorMetric.init(rawValue:))
+            .flatMap(BottomIndicatorMetric.init(rawValue:))
             ?? Self.defaultBottomIndicatorMetric
         self.metricBottomIndicatorStyle = storedMetricBottomIndicatorStyle
             .flatMap(VolumeDisplayStyle.init(rawValue:))
@@ -3322,6 +3517,12 @@ final class SettingsStore: ObservableObject {
         self.showsAirPodsTopSymbolInRing = defaults.object(
             forKey: Self.showsAirPodsTopSymbolInRingDefaultsKey
         ) as? Bool ?? true
+        self.airPodsLeftArcColor = defaults.string(forKey: Self.airPodsLeftArcColorDefaultsKey)
+            .map(BluetoothIconColorSelection.init(storageValue:)) ?? .systemBlue
+        self.airPodsRightArcColor = defaults.string(forKey: Self.airPodsRightArcColorDefaultsKey)
+            .map(BluetoothIconColorSelection.init(storageValue:)) ?? .primary
+        self.airPodsSingleArcColor = defaults.string(forKey: Self.airPodsSingleArcColorDefaultsKey)
+            .map(BluetoothIconColorSelection.init(storageValue:)) ?? .primary
         if let rawFallback = defaults.string(forKey: Self.airPodsRingFallbackDefaultsKey),
            let fallback = AirPodsRingFallback(rawValue: rawFallback) {
             self.airPodsRingFallback = fallback
@@ -3357,10 +3558,35 @@ final class SettingsStore: ObservableObject {
         self.hardwareBackgroundHistoryEnabled =
             defaults.object(forKey: Self.hardwareBackgroundHistoryEnabledDefaultsKey) as? Bool
             ?? Self.defaultHardwareBackgroundHistoryEnabled
-        let storedPanel = defaults.object(forKey: Self.hardwarePanelRefreshSecondsDefaultsKey) as? Int
-            ?? Self.defaultHardwarePanelRefreshSeconds
-        self.hardwarePanelRefreshSeconds = Self.hardwarePanelRefreshOptions.contains(storedPanel)
-            ? storedPanel : Self.defaultHardwarePanelRefreshSeconds
+        let storedTopApps = defaults.object(forKey: Self.hardwareTopAppsRefreshSecondsDefaultsKey) as? Int
+            ?? Self.defaultHardwareTopAppsRefreshSeconds
+        self.hardwareTopAppsRefreshSeconds = Self.hardwareTopAppsRefreshOptions.contains(storedTopApps)
+            ? storedTopApps : Self.defaultHardwareTopAppsRefreshSeconds
+        // Per-group cadences. A legacy single panel interval seeds each group on
+        // first run so an existing user keeps their slower choice; otherwise the
+        // group default (its metric floor) applies.
+        let legacyPanelSeconds = defaults.object(forKey: Self.hardwarePanelRefreshSecondsDefaultsKey) as? Int
+        func seedGroup(_ group: HardwareRefreshGroup, _ key: String) -> Int {
+            if let stored = defaults.object(forKey: key) as? Int, group.options.contains(stored) {
+                return stored
+            }
+            if let legacyPanelSeconds, legacyPanelSeconds > group.defaultSeconds {
+                return min(max(legacyPanelSeconds, group.defaultSeconds), 8)
+            }
+            return group.defaultSeconds
+        }
+        self.hardwareCPUUsageRefreshSeconds =
+            seedGroup(.cpuUsage, Self.hardwareCPUUsageRefreshSecondsDefaultsKey)
+        self.hardwareGPUUsageRefreshSeconds =
+            seedGroup(.gpuUsage, Self.hardwareGPUUsageRefreshSecondsDefaultsKey)
+        self.hardwareMemoryRefreshSeconds =
+            seedGroup(.memory, Self.hardwareMemoryRefreshSecondsDefaultsKey)
+        self.hardwareNetworkRefreshSeconds =
+            seedGroup(.network, Self.hardwareNetworkRefreshSecondsDefaultsKey)
+        self.hardwareTemperatureRefreshSeconds =
+            seedGroup(.temperature, Self.hardwareTemperatureRefreshSecondsDefaultsKey)
+        self.hardwareDiskRefreshSeconds =
+            seedGroup(.disk, Self.hardwareDiskRefreshSecondsDefaultsKey)
         let storedHistoryWindow = defaults.object(forKey: Self.hardwareHistoryWindowMinutesDefaultsKey) as? Int
             ?? Self.defaultHardwareHistoryWindowMinutes
         self.hardwareHistoryWindowMinutes = Self.hardwareHistoryWindowOptions.contains(storedHistoryWindow)
@@ -3378,6 +3604,12 @@ final class SettingsStore: ObservableObject {
             rawValue: defaults.string(forKey: Self.memoryRingDisplayModeDefaultsKey) ?? "") ?? .used
         self.ssdRingDisplayMode = RingValueDisplayMode(
             rawValue: defaults.string(forKey: Self.ssdRingDisplayModeDefaultsKey) ?? "") ?? .used
+        self.hardwareRingSplitGapProgress =
+            defaults.object(forKey: Self.hardwareRingSplitGapProgressDefaultsKey) as? Bool ?? false
+        self.hardwareSSDIncludeExternalInPercent =
+            defaults.object(forKey: Self.hardwareSSDIncludeExternalInPercentDefaultsKey) as? Bool ?? false
+        self.hardwareSSDExternalVolumePaths = Set(
+            defaults.stringArray(forKey: Self.hardwareSSDExternalVolumePathsDefaultsKey) ?? [])
         self.hardwareTemperatureMonitoringEnabled =
             defaults.object(forKey: Self.hardwareTemperatureMonitoringEnabledDefaultsKey) as? Bool ?? true
         self.cpuRingCenterContent = HardwareRingCenterContent(

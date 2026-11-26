@@ -74,6 +74,7 @@ struct IconPresentationSettings: Equatable, Sendable {
     var hardwareDownloadCapMbps: Double = 1000
     var hardwareUploadCapMbps: Double = 100
     var statusStripLayout: StatusStripLayout? = nil
+    var footerMetricTextScale = StatusStrip.defaultMetricTextScale
 }
 
 struct IconPresentationOutput: Equatable, Sendable {
@@ -397,6 +398,7 @@ final class IconPresentationViewModel: ObservableObject {
                     showsVolume: scene.bottomIndicatorSource == .volume,
                     centerShowsNetwork: mapping.trace.center.selectedSourceID == CenterSource.network.rawValue,
                     footerMetric: scene.bottomIndicatorSource == .metric ? inputs.bottomIndicatorMetric : nil,
+                    footerMetricTextScale: settings.footerMetricTextScale,
                     airPodsLevels: outerSource?.pluginID == "builtin.airpods-battery"
                         ? AirPodsRingMapper.stripLevels(snapshot: inputs.sources.airPodsBattery, ring: scene.outerRing) : [],
                     airPodsMarkerScale: settings.configuration.battery.textScale / BatteryIconOptions.defaultTextScale,

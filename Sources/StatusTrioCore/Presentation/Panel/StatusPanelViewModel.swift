@@ -209,6 +209,13 @@ final class StatusPanelViewModel: ObservableObject {
     @Published private(set) var cpuRingCenterContent: HardwareRingCenterContent
     @Published private(set) var gpuRingCenterContent: HardwareRingCenterContent
     @Published private(set) var hardwareTemperatureMonitoringEnabled: Bool
+    /// Whether the four panel rings split their progress across the top gap
+    /// (left half 0–50%, right half 50–100%) instead of absorbing it.
+    @Published private(set) var hardwareRingSplitGapProgress: Bool
+    /// Whether the SSD ring percentage pools ticked external volumes, and which
+    /// external volume mount paths are ticked.
+    @Published private(set) var hardwareSSDIncludeExternalInPercent: Bool
+    @Published private(set) var hardwareSSDExternalVolumePaths: Set<String>
 
     private var isStarted = false
     private var bluetoothIsExpanded = false
@@ -297,6 +304,9 @@ final class StatusPanelViewModel: ObservableObject {
         cpuRingCenterContent = settings.cpuRingCenterContent
         gpuRingCenterContent = settings.gpuRingCenterContent
         hardwareTemperatureMonitoringEnabled = settings.hardwareTemperatureMonitoringEnabled
+        hardwareRingSplitGapProgress = settings.hardwareRingSplitGapProgress
+        hardwareSSDIncludeExternalInPercent = settings.hardwareSSDIncludeExternalInPercent
+        hardwareSSDExternalVolumePaths = settings.hardwareSSDExternalVolumePaths
         hardwareSpeedCapsMbps = [
             .downloadSpeed: settings.hardwareDownloadCapMbps,
             .uploadSpeed: settings.hardwareUploadCapMbps
@@ -495,9 +505,20 @@ final class StatusPanelViewModel: ObservableObject {
             }
             .store(in: &cancellables)
 
-        settings.$hardwarePanelRefreshSeconds
-            .removeDuplicates()
-            .sink { [weak self] seconds in self?.updateHardwareMetricsDemand(panelSeconds: seconds) }
+        let refreshTriggers: [AnyPublisher<Void, Never>] = [
+            settings.$hardwareCPUUsageRefreshSeconds.map { _ in () }.eraseToAnyPublisher(),
+            settings.$hardwareGPUUsageRefreshSeconds.map { _ in () }.eraseToAnyPublisher(),
+            settings.$hardwareMemoryRefreshSeconds.map { _ in () }.eraseToAnyPublisher(),
+            settings.$hardwareNetworkRefreshSeconds.map { _ in () }.eraseToAnyPublisher(),
+            settings.$hardwareTemperatureRefreshSeconds.map { _ in () }.eraseToAnyPublisher(),
+            settings.$hardwareDiskRefreshSeconds.map { _ in () }.eraseToAnyPublisher()
+        ]
+        Publishers.MergeMany(refreshTriggers)
+            .sink { [weak self] in self?.updateHardwareMetricsDemand() }
+            .store(in: &cancellables)
+
+        settings.$hardwareTopAppsRefreshSeconds
+            .sink { [weak self] seconds in self?.updateHardwareMetricsDemand(topAppsSeconds: seconds) }
             .store(in: &cancellables)
 
         settings.$showsHardwareRings
@@ -583,6 +604,30 @@ final class StatusPanelViewModel: ObservableObject {
                 guard let self, self.hardwareTemperatureMonitoringEnabled != enabled else { return }
                 self.hardwareTemperatureMonitoringEnabled = enabled
                 self.scheduleHardwareDemandRecompute()
+            }
+            .store(in: &cancellables)
+
+        settings.$hardwareRingSplitGapProgress
+            .removeDuplicates()
+            .sink { [weak self] split in
+                guard let self, self.hardwareRingSplitGapProgress != split else { return }
+                self.hardwareRingSplitGapProgress = split
+            }
+            .store(in: &cancellables)
+
+        settings.$hardwareSSDIncludeExternalInPercent
+            .removeDuplicates()
+            .sink { [weak self] include in
+                guard let self, self.hardwareSSDIncludeExternalInPercent != include else { return }
+                self.hardwareSSDIncludeExternalInPercent = include
+            }
+            .store(in: &cancellables)
+
+        settings.$hardwareSSDExternalVolumePaths
+            .removeDuplicates()
+            .sink { [weak self] paths in
+                guard let self, self.hardwareSSDExternalVolumePaths != paths else { return }
+                self.hardwareSSDExternalVolumePaths = paths
             }
             .store(in: &cancellables)
 
@@ -1177,7 +1222,7 @@ final class StatusPanelViewModel: ObservableObject {
     /// closing the panel ends the demand immediately, so a closed panel never
     /// keeps a hardware timer alive.
     private func updateHardwareMetricsDemand(popoverVisible: Bool? = nil,
-                                             panelSeconds: Int? = nil) {
+                                             topAppsSeconds: Int? = nil) {
         // `@Published` publishes in willSet, so a subscriber must pass the new
         // value in rather than read `store.isPopoverVisible` (still the old one).
         let sectionOn = visiblePopupSections.contains(.hardwareMonitor)
@@ -1185,11 +1230,25 @@ final class StatusPanelViewModel: ObservableObject {
         let detailKind = activeDetailKind
         let summaryVisible = panelOpen && isSummaryVisible
         let detailVisible = panelOpen && detailKind != nil
-        let panelRefresh = panelSeconds ?? settings.hardwarePanelRefreshSeconds
-        store.hardwareMetrics.panelIntervalSeconds = TimeInterval(panelRefresh)
+        // Per-group panel cadence: a metric is sampled at the fastest of all
+        // active consumers, so icons stay fast and a panel-only metric slows to
+        // its group's setting.
+        store.hardwareMetrics.panelCadenceProvider = { [settings] group in
+            TimeInterval(settings.hardwareRefreshSeconds(for: group))
+        }
+        // Same cadences drive the panel's display throttle: the physical sample
+        // stays shared, but the panel only adopts a group's latest value once
+        // that group's cadence has elapsed.
+        store.hardwareMetrics.observable.panelDisplayCadence = { [settings] group in
+            TimeInterval(settings.hardwareRefreshSeconds(for: group))
+        }
         // Only the visible detail page pays for its structured payload and the
         // per-page expensive work (frequency for CPU, session totals for network).
         store.hardwareMetrics.setDetailDemand(detailVisible ? detailKind : nil)
+        // The top-app list uses its own cadence so it never outruns the panel and
+        // can be tuned independently of the card refresh.
+        store.topApps.minimumIntervalSeconds =
+            TimeInterval(topAppsSeconds ?? settings.hardwareTopAppsRefreshSeconds)
         store.topApps.setDemand(detailVisible && showsHardwareTopApps ? detailKind?.topAppMetric : nil)
         // Background history belongs to the app-lifetime controller, so closing
         // the panel (which stops this view model's subscriptions) cannot kill it.

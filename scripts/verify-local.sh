@@ -106,9 +106,20 @@ else
         echo "Removing stale local app bundle before verification: $APP_DIR"
         rm -rf "$APP_DIR"
     fi
+    bundle_identity=(
+        BUNDLE_ID=com.lingsmbp.StatusTrio.dev.verify-local
+        "APP_NAME=Status Trio (Verify Local)"
+    )
+    if [[ "${STATUS_TRIO_DIY_REUSE_MOBILE_BATTERY:-0}" == 1 ]]; then
+        bundle_identity=(
+            BUNDLE_ID=local.statustrio.diy.status-strip
+            "APP_NAME=Status Trio DIY"
+            DISABLE_PRODUCTION_UPDATES=1
+            CODE_SIGN_IDENTITY=-
+        )
+    fi
     run_step "App bundle build" env \
-        BUNDLE_ID=com.lingsmbp.StatusTrio.dev.verify-local \
-        APP_NAME="Status Trio (Verify Local)" \
+        "${bundle_identity[@]}" \
         UNIVERSAL_BUILD=0 \
         bash scripts/build-app.sh release no-open
     run_step "Platform and SDK contract" bash scripts/verify-platform-version.sh \

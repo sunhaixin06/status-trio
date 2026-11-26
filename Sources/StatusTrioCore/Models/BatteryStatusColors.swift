@@ -12,6 +12,7 @@ enum BatteryStatusColorRole: String, CaseIterable, Hashable, Sendable {
     /// without changing its saved palette.
     case discharging
     case charging
+    case connected
     case lowPower
     /// High Power Mode's blue accent, independent of the charging colour.
     case highPower
@@ -78,6 +79,7 @@ struct BatteryStatusColorComponents: Equatable, Hashable, Sendable {
 struct BatteryStatusColors: Equatable, Hashable, Sendable {
     var discharging: BatteryStatusColorSelection
     var charging: BatteryStatusColorSelection
+    var connected: BatteryStatusColorSelection
     var lowPower: BatteryStatusColorSelection
     var highPower: BatteryStatusColorSelection
     var critical: BatteryStatusColorSelection
@@ -85,12 +87,14 @@ struct BatteryStatusColors: Equatable, Hashable, Sendable {
     init(
         discharging: BatteryStatusColorSelection = .system,
         charging: BatteryStatusColorSelection = .system,
+        connected: BatteryStatusColorSelection = .system,
         lowPower: BatteryStatusColorSelection = .system,
         highPower: BatteryStatusColorSelection = .system,
         critical: BatteryStatusColorSelection = .system
     ) {
         self.discharging = discharging
         self.charging = charging
+        self.connected = connected
         self.lowPower = lowPower
         self.highPower = highPower
         self.critical = critical
@@ -101,14 +105,15 @@ struct BatteryStatusColors: Equatable, Hashable, Sendable {
     /// Whether any role overrides the system colour. Used by the settings page
     /// to decide if the "follow system" reset is worth offering.
     var hasOverrides: Bool {
-        !discharging.isSystem || !charging.isSystem || !lowPower.isSystem
-            || !highPower.isSystem || !critical.isSystem
+        !discharging.isSystem || !charging.isSystem || !connected.isSystem
+            || !lowPower.isSystem || !highPower.isSystem || !critical.isSystem
     }
 
     func selection(for role: BatteryStatusColorRole) -> BatteryStatusColorSelection {
         switch role {
         case .discharging: discharging
         case .charging: charging
+        case .connected: connected
         case .lowPower: lowPower
         case .highPower: highPower
         case .critical: critical
@@ -119,6 +124,7 @@ struct BatteryStatusColors: Equatable, Hashable, Sendable {
         switch role {
         case .discharging: discharging = selection
         case .charging: charging = selection
+        case .connected: connected = selection
         case .lowPower: lowPower = selection
         case .highPower: highPower = selection
         case .critical: critical = selection

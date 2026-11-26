@@ -3,6 +3,9 @@
 # .build; OpenSSL and the MobileBattery repositories are never built here.
 set -euo pipefail
 
+# The fixtures provide their own Homebrew stub, independent of the host build.
+unset MOBILE_BATTERY_TOOLCHAIN_SOURCE
+
 ROOT="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
 TEST_ROOT="$(mktemp -d "${TMPDIR:-/tmp}/StatusTrioMobileBatteryCache.XXXXXX")"
 TEST_ROOT="$(cd -- "$TEST_ROOT" && pwd -P)"
@@ -610,6 +613,8 @@ expect_key_change "SDK settings contents" "$SDK_SETTINGS_KEY"
 FIXTURE_AUTOCONF_VERSION=2.74 expect_key_change \
     "Homebrew tool version" \
     "$(FIXTURE_AUTOCONF_VERSION=2.74 prepare_key "$PROJECT" "$HOST_ARCH")"
+expect_key_change "local toolchain provenance" \
+    "$(MOBILE_BATTERY_TOOLCHAIN_SOURCE=local prepare_key "$PROJECT" "$HOST_ARCH")"
 
 cp "$PROJECT/Support/mobile-battery-dependencies.json" "$TEST_ROOT/manifest.saved"
 printf '\n' >> "$PROJECT/Support/mobile-battery-dependencies.json"

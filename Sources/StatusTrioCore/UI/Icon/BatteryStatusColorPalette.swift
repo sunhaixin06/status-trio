@@ -19,6 +19,9 @@ struct BatteryStatusColorPalette {
     /// near-black ink differs from `labelColor`, so a palette colour would drift).
     let dischargingIsSystem: Bool
     let charging: CGColor
+    /// Connected to power without charging (#389). Its `.system` baseline is the
+    /// same green as `charging`, so an upgrade never changes the connected look.
+    let connected: CGColor
     let lowPower: CGColor
     let highPower: CGColor
     let critical: CGColor
@@ -33,6 +36,7 @@ struct BatteryStatusColorPalette {
             discharging: CGColor(gray: 0, alpha: 1),
             dischargingIsSystem: true,
             charging: CGColor(gray: 1, alpha: 1),
+            connected: CGColor(gray: 1, alpha: 1),
             lowPower: CGColor(gray: 1, alpha: 1),
             highPower: CGColor(gray: 1, alpha: 1),
             critical: CGColor.redFallback,
@@ -48,6 +52,7 @@ struct BatteryStatusColorPalette {
                 discharging: CGColor(gray: isDark ? 1 : 0, alpha: 1),
                 dischargingIsSystem: true,
                 charging: increasedContrast ? rgb(.systemGreen) : rgb(accents.charging),
+                connected: increasedContrast ? rgb(.systemGreen) : rgb(accents.charging),
                 lowPower: increasedContrast ? rgb(.systemYellow) : rgb(accents.lowPower),
                 highPower: increasedContrast ? rgb(.systemBlue) : rgb(accents.highPower),
                 critical: increasedContrast ? rgb(.systemRed) : rgb(accents.critical),
@@ -71,6 +76,7 @@ struct BatteryStatusColorPalette {
             discharging: foreground,
             dischargingIsSystem: true,
             charging: resolved.charging,
+            connected: resolved.connected,
             lowPower: resolved.lowPower,
             highPower: resolved.highPower,
             critical: critical,
@@ -86,6 +92,7 @@ struct BatteryStatusColorPalette {
         switch role {
         case .discharging: discharging
         case .charging: charging
+        case .connected: connected
         case .lowPower: lowPower
         case .highPower: highPower
         case .critical: critical
@@ -108,6 +115,7 @@ struct BatteryStatusColorPalette {
             discharging: resolve(.discharging, discharging),
             dischargingIsSystem: statusColors.discharging.isSystem,
             charging: resolve(.charging, charging),
+            connected: resolve(.connected, connected),
             lowPower: resolve(.lowPower, lowPower),
             highPower: resolve(.highPower, highPower),
             critical: resolve(.critical, critical),
@@ -127,6 +135,7 @@ struct BatteryStatusColorPalette {
             discharging: discharging,
             dischargingIsSystem: dischargingIsSystem,
             charging: charging,
+            connected: connected,
             lowPower: lowPower,
             highPower: highPower,
             critical: critical,

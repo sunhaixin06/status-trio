@@ -7,18 +7,66 @@ import SwiftUI
 struct HardwareMonitorSectionView: View {
     @ObservedObject var store: SettingsStore
     @EnvironmentObject private var localization: Localization
+    /// External volumes detected when the pane appears, for the SSD external
+    /// picker. Loaded once here rather than on every body evaluation.
+    @State private var externalVolumes: [DiskVolumeReading] = []
 
     var body: some View {
         SettingsPage {
             placementGroup
-            refreshGroup
+            samplingGroup
             networkCapGroup
             temperatureMonitoringGroup
             ringGroup
             if store.showsHardwareRings { ringValueGroup }
+            if store.showsHardwareRings { externalDiskGroup }
             bottomBarGroup
             colorGroup
             advancedThresholdGroup
+        }
+        .onAppear { externalVolumes = DiskCapacityReader.externalVolumes() }
+    }
+
+    /// SSD external-drive statistics: whether the ring percentage pools the
+    /// ticked external volumes, and which external volumes are ticked. Ticked
+    /// volumes feed the small external total under the SSD ring.
+    private var externalDiskGroup: some View {
+        SettingsGroup(
+            localization.string(.hardwareMonitorExternalDiskGroup),
+            footnote: localization.string(.hardwareMonitorExternalDiskListDescription)
+        ) {
+            SettingsToggleRow(
+                symbol: "externaldrive",
+                tint: .teal,
+                title: localization.string(.hardwareMonitorIncludeExternalInPercent),
+                subtitle: localization.string(.hardwareMonitorIncludeExternalInPercentDescription),
+                isOn: $store.hardwareSSDIncludeExternalInPercent
+            )
+            SettingsDivider()
+            if externalVolumes.isEmpty {
+                SettingsRow(title: localization.string(.hardwareMonitorExternalDiskEmpty)) {
+                    EmptyView()
+                }
+            } else {
+                ForEach(Array(externalVolumes.enumerated()), id: \.element.id) { index, volume in
+                    SettingsRow(
+                        "externaldrive",
+                        tint: .teal,
+                        title: volume.name,
+                        subtitle: localization.format(.hardwareDetailDiskAvailable,
+                                                      HardwareDetailFormat.bytes(volume.freeBytes),
+                                                      HardwareDetailFormat.bytes(volume.totalBytes))
+                    ) {
+                        Toggle("", isOn: Binding(
+                            get: { store.hardwareSSDExternalVolumePaths.contains(volume.mountPath) },
+                            set: { store.setHardwareSSDExternalVolume(path: volume.mountPath, included: $0) }
+                        ))
+                        .toggleStyle(.checkbox)
+                        .labelsHidden()
+                    }
+                    if index < externalVolumes.count - 1 { SettingsDivider() }
+                }
+            }
         }
     }
 
@@ -51,27 +99,34 @@ struct HardwareMonitorSectionView: View {
         }
     }
 
-    private var refreshGroup: some View {
-        SettingsGroup {
-            SettingsRow(
-                "speedometer",
-                tint: .blue,
-                title: localization.string(.hardwareMonitorSettingsPanelRefresh),
-                subtitle: localization.string(.hardwareMonitorSettingsPanelRefreshDescription)
-            ) {
-                Picker(localization.string(.hardwareMonitorSettingsPanelRefresh),
-                       selection: Binding(
-                        get: { store.hardwarePanelRefreshSeconds },
-                        set: { store.hardwarePanelRefreshSeconds = $0 })) {
-                    ForEach(SettingsStore.hardwarePanelRefreshOptions, id: \.self) { seconds in
-                        Text(localization.format(.hardwareMonitorBackgroundSeconds, seconds))
-                            .tag(seconds)
+    /// Sampling cadence and how much history survives while the panel is
+    /// closed. Grouped together because they trade freshness against readings.
+    private var samplingGroup: some View {
+        SettingsGroup(
+            localization.string(.hardwareMonitorSettingsGroupSampling),
+            footnote: localization.string(.hardwareMonitorSettingsGroupSamplingFootnote)
+        ) {
+            ForEach(HardwareRefreshGroup.allCases, id: \.self) { group in
+                SettingsRow(
+                    "speedometer",
+                    tint: .blue,
+                    title: localization.string(group.titleKey),
+                    subtitle: nil
+                ) {
+                    Picker(localization.string(group.titleKey),
+                           selection: Binding(
+                            get: { store.hardwareRefreshSeconds(for: group) },
+                            set: { setHardwareRefresh(group, $0) })) {
+                        ForEach(group.options, id: \.self) { seconds in
+                            Text(localization.format(.hardwareMonitorBackgroundSeconds, seconds))
+                                .tag(seconds)
+                        }
                     }
+                    .labelsHidden()
+                    .settingsMenuPickerWidth()
                 }
-                .labelsHidden()
-                .settingsMenuPickerWidth()
+                SettingsDivider()
             }
-            SettingsDivider()
             SettingsRow(
                 "chart.line.uptrend.xyaxis",
                 tint: .teal,
@@ -112,6 +167,39 @@ struct HardwareMonitorSectionView: View {
                     set: { store.showsHardwareTopApps = $0 }
                 )
             )
+
+            SettingsDivider()
+            SettingsRow(
+                "timer",
+                tint: .orange,
+                title: localization.string(.hardwareMonitorSettingsRefreshTopApps),
+                subtitle: localization.string(.hardwareMonitorSettingsRefreshTopAppsDescription)
+            ) {
+                Picker(localization.string(.hardwareMonitorSettingsRefreshTopApps),
+                       selection: Binding(
+                        get: { store.hardwareTopAppsRefreshSeconds },
+                        set: { store.hardwareTopAppsRefreshSeconds = $0 })) {
+                    ForEach(SettingsStore.hardwareTopAppsRefreshOptions, id: \.self) { seconds in
+                        Text(localization.format(.hardwareMonitorBackgroundSeconds, seconds))
+                            .tag(seconds)
+                    }
+                }
+                .labelsHidden()
+                .settingsMenuPickerWidth()
+            }
+        }
+    }
+
+    /// Writes one group's cadence back through its published setter so the panel
+    /// and background providers pick the new value up.
+    private func setHardwareRefresh(_ group: HardwareRefreshGroup, _ seconds: Int) {
+        switch group {
+        case .cpuUsage: store.hardwareCPUUsageRefreshSeconds = seconds
+        case .gpuUsage: store.hardwareGPUUsageRefreshSeconds = seconds
+        case .memory: store.hardwareMemoryRefreshSeconds = seconds
+        case .network: store.hardwareNetworkRefreshSeconds = seconds
+        case .temperature: store.hardwareTemperatureRefreshSeconds = seconds
+        case .disk: store.hardwareDiskRefreshSeconds = seconds
         }
     }
 
@@ -278,6 +366,14 @@ struct HardwareMonitorSectionView: View {
                         )
                     }
                 }
+                SettingsDivider()
+                SettingsToggleRow(
+                    symbol: "circle.lefthalf.filled",
+                    tint: .blue,
+                    title: localization.string(.hardwareMonitorSettingsSplitGapProgress),
+                    subtitle: localization.string(.hardwareMonitorSettingsSplitGapProgressDescription),
+                    isOn: $store.hardwareRingSplitGapProgress
+                )
             }
         }
     }

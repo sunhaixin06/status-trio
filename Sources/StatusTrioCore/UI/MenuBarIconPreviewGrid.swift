@@ -34,12 +34,25 @@ struct HardwareRingStrip: View {
     var cpuCenterContent: HardwareRingCenterContent = .temperature
     var gpuCenterContent: HardwareRingCenterContent = .temperature
     var temperatureMonitoringEnabled: Bool = true
+    /// Whether each ring's progress is split across the top gap (left half
+    /// 0–50%, right half 50–100%) instead of the gap absorbing it (#375).
+    var splitGapProgress: Bool = false
+    /// Whether the SSD ring's top percentage pools selected external volumes
+    /// with the internal disk. Only the carded (status panel) SSD card shows the
+    /// external total footer; the menu-bar strip stays internal-only.
+    var ssdIncludeExternalInPercent: Bool = false
+    /// Mount paths of external volumes the user ticked to include in the total.
+    var ssdSelectedExternalPaths: Set<String> = []
 
     /// Capacity is read once when the strip appears, not on every redraw: the
     /// volume query is a real filesystem/APFS lookup and was running on every
     /// parent body evaluation because a `@State` default expression is still
     /// evaluated each time the view struct is created.
     @State private var disk: DiskCapacitySample = .empty
+    /// External volumes, read once alongside the internal capacity so the SSD
+    /// card can show the selected external total without per-frame filesystem
+    /// work.
+    @State private var externalVolumes: [DiskVolumeReading] = []
     /// Pointer-enter glow so a clickable glass card reads as interactive
     /// (matches the keep-awake capsule in QuickActionsCardView).
     @State private var hoveredSlot: HardwareRingSlot?
@@ -72,15 +85,30 @@ struct HardwareRingStrip: View {
         .task(id: showsSSDCapacity) {
             // Only the visible SSD ring needs the one-shot volume lookup; a
             // CPU-only or GPU-only strip must not touch the filesystem.
-            if showsSSDCapacity, disk.freeBytes == nil { disk = DiskCapacitySample.current() }
+            guard showsSSDCapacity else { return }
+            if disk.freeBytes == nil { disk = DiskCapacitySample.current() }
+            if externalVolumes.isEmpty { externalVolumes = DiskCapacityReader.externalVolumes() }
         }
     }
 
     private var showsSSDCapacity: Bool { visibleSlots.contains(.ssd) }
 
-    /// The ring scene for one slot, with the carded-mode top-text fix.
-    private func ringBase(_ slot: HardwareRingSlot, topAdjustment: CGFloat) -> some View {
-        let spec = spec(for: slot)
+    /// Capacity of the external volumes the user ticked, summed. Empty selection
+    /// gives a zero total, so the SSD card shows no external footer by default.
+    private var selectedExternalTotals: (total: Int64, free: Int64) {
+        externalVolumes
+            .filter { ssdSelectedExternalPaths.contains($0.mountPath) }
+            .reduce(into: (total: Int64(0), free: Int64(0))) { sum, volume in
+                sum.total += Int64(volume.totalBytes)
+                sum.free += Int64(volume.freeBytes)
+            }
+    }
+
+    /// The ring scene for one slot, with the carded-mode top-text fix. `cardedSSD`
+    /// turns the SSD card into the two-line footer layout (internal value above,
+    /// selected external total below).
+    private func ringBase(_ slot: HardwareRingSlot, topAdjustment: CGFloat, cardedSSD: Bool = false) -> some View {
+        let spec = spec(for: slot, cardedSSD: cardedSSD)
         return AnimatedSceneIcon(
             label: slot.label,
             top: spec.top,
@@ -89,7 +117,9 @@ struct HardwareRingStrip: View {
             color: spec.color,
             progress: spec.progress,
             topTextVerticalAdjustment: topAdjustment,
-            animatesProgress: animatesProgress
+            animatesProgress: animatesProgress,
+            splitProgress: splitGapProgress,
+            footerNote: spec.footerNote
         )
         .animation(animatesProgress ? .easeOut(duration: 0.35) : nil, value: spec.progress)
     }
@@ -98,7 +128,7 @@ struct HardwareRingStrip: View {
     /// the shared silver surface; the opaque solid branch gets the neutral
     /// hardware surface with a palette-driven hover fill.
     private func ringCard(_ slot: HardwareRingSlot, hovered: Bool = false) -> some View {
-        ringBase(slot, topAdjustment: Self.cardedTopTextAdjustment)
+        ringBase(slot, topAdjustment: Self.cardedTopTextAdjustment, cardedSSD: slot == .ssd)
             .padding(5)
             .hardwareMonitorCardSurface(.silver(.connected), cornerRadius: 13, hovered: hovered)
     }
@@ -148,30 +178,65 @@ struct HardwareRingStrip: View {
 
     // MARK: - Slots
 
-    private func spec(for slot: HardwareRingSlot) -> (top: String, center: String, progress: Double, color: IconRGBA, centerScale: Double) {
+    private struct RingSlotSpec {
+        var top: String
+        var center: String
+        var progress: Double
+        var color: IconRGBA
+        var centerScale: Double
+        /// A small trailing note on the same line as the label, e.g. `+1500GB`
+        /// for the external total. Keeps the label and the total on one compact
+        /// baseline instead of stacking a second line.
+        var footerNote: String? = nil
+    }
+
+    private func spec(for slot: HardwareRingSlot, cardedSSD: Bool = false) -> RingSlotSpec {
         switch slot {
         case .cpu:
             let useTemperature = temperatureMonitoringEnabled && cpuCenterContent == .temperature
             let center = useTemperature ? temperatureText(.cpuTemperature) : frequencyText()
-            return (percentText(.cpuUsage), center, percent(.cpuUsage), color(.cpuUsage), fittedCenterScale(center, base: 1.05))
+            return RingSlotSpec(top: percentText(.cpuUsage), center: center, progress: percent(.cpuUsage),
+                                color: color(.cpuUsage), centerScale: fittedCenterScale(center, base: 1.05))
         case .gpu:
             let useTemperature = temperatureMonitoringEnabled && gpuCenterContent == .temperature
             let center = useTemperature ? temperatureText(.gpuTemperature) : "--"
-            return (percentText(.gpuUsage), center, percent(.gpuUsage), color(.gpuUsage), fittedCenterScale(center, base: 1.05))
+            return RingSlotSpec(top: percentText(.gpuUsage), center: center, progress: percent(.gpuUsage),
+                                color: color(.gpuUsage), centerScale: fittedCenterScale(center, base: 1.05))
         case .ram:
             let value = HardwareRingValuePresentation.memory(
                 usedPercent: sample(.memoryUsage)?.value,
                 totalBytes: ProcessInfo.processInfo.physicalMemory,
                 mode: memoryDisplayMode)
-            return (value.topText, value.centerText, value.progress,
-                    color(.memoryUsage), fittedCenterScale(value.centerText, base: 0.8))
+            return RingSlotSpec(top: value.topText, center: value.centerText, progress: value.progress,
+                                color: color(.memoryUsage), centerScale: fittedCenterScale(value.centerText, base: 0.8))
         case .ssd:
-            let value = HardwareRingValuePresentation.disk(
+            let external = selectedExternalTotals
+            let poolsExternals = ssdIncludeExternalInPercent && external.total > 0
+            // The percentage (and arc) can pool the internal disk with the ticked
+            // external volumes; the footer's first line still reports the
+            // internal disk alone.
+            let internalValue = HardwareRingValuePresentation.disk(
                 usedFraction: disk.usedFraction, totalBytes: disk.totalBytes,
                 freeBytes: disk.freeBytes, mode: ssdDisplayMode)
-            return (value.topText, value.centerText, value.progress,
-                    diskColor,
-                    fittedCenterScale(value.centerText, base: 0.8))
+            var topText = internalValue.topText
+            var progress = internalValue.progress
+            if poolsExternals,
+               let usedFraction = HardwareRingValuePresentation.combinedUsedFraction(
+                   internalTotal: disk.totalBytes, internalFree: disk.freeBytes,
+                   externalTotal: external.total, externalFree: external.free) {
+                let combinedTotal = max(0, disk.totalBytes ?? 0) + max(0, external.total)
+                let combinedFree = max(0, disk.freeBytes ?? 0) + max(0, external.free)
+                let combined = HardwareRingValuePresentation.disk(
+                    usedFraction: usedFraction, totalBytes: combinedTotal,
+                    freeBytes: combinedFree, mode: ssdDisplayMode)
+                topText = combined.topText
+                progress = combined.progress
+            }
+            let externalNote: String? = (cardedSSD && external.total > 0)
+                ? "+" + HardwareDetailFormat.compactDisk(Double(external.total)) : nil
+            return RingSlotSpec(top: topText, center: internalValue.centerText, progress: progress,
+                                color: diskColor, centerScale: fittedCenterScale(internalValue.centerText, base: 0.8),
+                                footerNote: externalNote)
         }
     }
 
@@ -250,9 +315,18 @@ struct MenuBarIconPreviewGrid: View {
     }
 }
 
+enum HardwareMetricTrackGeometry {
+    static func fill(progress: Double, split: Bool) -> Range<Double> {
+        let fraction = min(1, max(0, progress))
+        let start = split ? (1 - fraction) / 2 : 0
+        return start..<(start + fraction)
+    }
+}
+
 private struct AnimatedMetricTrack: View, Animatable {
     let color: IconRGBA
     var progress: Double
+    let split: Bool
 
     nonisolated var animatableData: Double {
         get { progress }
@@ -261,10 +335,12 @@ private struct AnimatedMetricTrack: View, Animatable {
 
     var body: some View {
         GeometryReader { proxy in
+            let fill = HardwareMetricTrackGeometry.fill(progress: progress, split: split)
             ZStack(alignment: .leading) {
                 Capsule().fill(Color.primary.opacity(0.14))
                 Capsule().fill(Color(red: color.red, green: color.green, blue: color.blue, opacity: color.alpha))
-                    .frame(width: proxy.size.width * min(1, max(0, progress)))
+                    .frame(width: proxy.size.width * (fill.upperBound - fill.lowerBound))
+                    .offset(x: proxy.size.width * fill.lowerBound)
             }
         }
     }
@@ -281,12 +357,14 @@ struct AnimatedSceneIcon: View {
     var topTextVerticalAdjustment: CGFloat = 0
     /// Snap to new values instead of tweening when updated every second.
     var animatesProgress: Bool = true
+    var splitProgress: Bool = false
+    var footerNote: String? = nil
 
     var body: some View {
         GeometryReader { proxy in
             let side = min(proxy.size.width, proxy.size.height)
             ZStack {
-                AnimatedMetricTrack(color: color, progress: progress)
+                AnimatedMetricTrack(color: color, progress: progress, split: splitProgress)
                     .frame(width: side * 0.70, height: max(2, side * 0.05))
                     .offset(y: side * 0.17)
                     .animation(animatesProgress ? .easeOut(duration: 0.35) : nil, value: progress)
@@ -296,9 +374,11 @@ struct AnimatedSceneIcon: View {
                     .foregroundStyle(.primary)
                     .offset(y: -side * 0.33 + topTextVerticalAdjustment)
                 centerValueText(side: side)
-                Text(label)
+                Text(footerNote ?? label)
                     .font(.system(size: side * 0.14, weight: .regular))
                     .foregroundStyle(.secondary)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.7)
                     .offset(y: side * 0.36)
             }
             .frame(width: side, height: side)

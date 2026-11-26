@@ -80,7 +80,8 @@ struct MenuBarPreviewBar<TrailingAccessory: View>: View {
     /// chosen quantity (volume / Wi-Fi / battery / hardware metric) instead of
     /// always drawing the volume bar.
     var bottomIndicatorSource: BottomIndicatorSource = .volume
-    var bottomIndicatorMetric: HardwareMonitorMetric = .cpuUsage
+    var bottomIndicatorMetric: BottomIndicatorMetric = .cpuUsage
+    var footerMetricTextScale = StatusStrip.defaultMetricTextScale
     var bottomIndicatorMetricColor: IconRGBA? = nil
     var bottomIndicatorStyle: VolumeDisplayStyle? = nil
     var layout: StatusStripLayout = .unified
@@ -132,7 +133,8 @@ struct MenuBarPreviewBar<TrailingAccessory: View>: View {
                                        threshold: batteryOptions.criticalThreshold,
                                        prioritizesNetworkErrors: connectionOptions.prioritizesNetworkErrors,
                                        showsVolume: scene.bottomIndicatorSource == .volume,
-                                       footerMetric: scene.bottomIndicatorSource == .metric ? bottomIndicatorMetric : nil)
+                                       footerMetric: scene.bottomIndicatorSource == .metric ? bottomIndicatorMetric : nil,
+                                       footerMetricTextScale: footerMetricTextScale)
         return scene
     }
 
@@ -151,7 +153,8 @@ struct MenuBarPreviewBar<TrailingAccessory: View>: View {
         inputSource: InputSourceDescriptor? = nil,
         isHighPowerMode: Bool = false,
         bottomIndicatorSource: BottomIndicatorSource = .volume,
-        bottomIndicatorMetric: HardwareMonitorMetric = .cpuUsage,
+        bottomIndicatorMetric: BottomIndicatorMetric = .cpuUsage,
+        footerMetricTextScale: Double = StatusStrip.defaultMetricTextScale,
         bottomIndicatorMetricColor: IconRGBA? = nil,
         bottomIndicatorStyle: VolumeDisplayStyle? = nil,
         layout: StatusStripLayout = .unified,
@@ -174,6 +177,7 @@ struct MenuBarPreviewBar<TrailingAccessory: View>: View {
         self.isHighPowerMode = isHighPowerMode
         self.bottomIndicatorSource = bottomIndicatorSource
         self.bottomIndicatorMetric = bottomIndicatorMetric
+        self.footerMetricTextScale = footerMetricTextScale
         self.bottomIndicatorMetricColor = bottomIndicatorMetricColor
         self.bottomIndicatorStyle = bottomIndicatorStyle
         self.layout = layout

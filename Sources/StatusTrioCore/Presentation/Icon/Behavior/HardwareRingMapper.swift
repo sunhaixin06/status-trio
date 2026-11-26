@@ -143,7 +143,7 @@ enum HardwareRingMapper {
     /// Returns `nil` when the sample is stale/unavailable, matching the ring's
     /// "do not invent a live reading" rule.
     static func footerState(
-        metric: HardwareMonitorMetric,
+        metric selection: BottomIndicatorMetric,
         snapshot: HardwareMetricsSnapshot,
         configuration: HardwareRingConfiguration,
         levels: [HardwareMonitorMetric: HardwareLoadLevel],
@@ -154,6 +154,10 @@ enum HardwareRingMapper {
         style: VolumeDisplayStyle,
         strokeScale: Double
     ) -> FooterState? {
+        guard let metric = selection.hardwareMetric else {
+            return MemoryPressureFooterMapper.state(reading: snapshot.memoryPressure, now: now,
+                                                    style: style, strokeScale: strokeScale)
+        }
         let options = configuration.options(for: metric)
         let sample = sample(for: metric, in: snapshot, auxiliary: auxiliarySamples)
         let capMbps = speedCapsMbps[metric]

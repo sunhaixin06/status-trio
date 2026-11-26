@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 set -euo pipefail
+unset STATUS_TRIO_DIY_REUSE_MOBILE_BATTERY
 
 ROOT="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
 WORK="$(mktemp -d "${TMPDIR:-/tmp}/StatusTrioVerifyLocal.XXXXXX")"

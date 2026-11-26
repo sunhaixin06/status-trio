@@ -139,6 +139,12 @@ extension SettingsStore {
         configuration.appearance.outerRing.strokeScale = battery.ringStrokeScale
         configuration.appearance.footer.strokeScale = volume.ringStrokeScale
         configuration.appearance.bluetoothIconColor = BluetoothIconColorConfiguration(bluetooth.iconColor)
+        configuration.appearance.airPodsLeftArcColor =
+            BluetoothIconColorConfiguration(appearance.airPodsLeftArcColor)
+        configuration.appearance.airPodsRightArcColor =
+            BluetoothIconColorConfiguration(appearance.airPodsRightArcColor)
+        configuration.appearance.airPodsSingleArcColor =
+            BluetoothIconColorConfiguration(appearance.airPodsSingleArcColor)
         configuration.appearance.inputSourceMarkerStyle = inputSourceMarkerStyle
         configuration.appearance.bluetoothSymbolScale = bluetooth.symbolScale
         // The palette applies `symbolScale / classic` as the centre factor over the
@@ -317,6 +323,9 @@ extension SettingsStore {
         showsWiFiIconForInternetSharing = behaviors.networkCenter.showsWiFiIconForInternetSharing
 
         bluetoothIconColor = appearance.bluetoothIconColor.selection
+        airPodsLeftArcColor = appearance.airPodsLeftArcColor.selection
+        airPodsRightArcColor = appearance.airPodsRightArcColor.selection
+        airPodsSingleArcColor = appearance.airPodsSingleArcColor.selection
         bluetoothSymbolScale = appearance.bluetoothSymbolScale
         bluetoothNetworkIconSymbolName = behaviors.bluetoothAudioCenter.networkIconSymbolOverride
         inputSourceMarkerStyle = appearance.inputSourceMarkerStyle
@@ -339,7 +348,7 @@ extension SettingsStore {
         appearance: StatusIconAppearance,
         inputSourceMarkerStyle: InputSourceMarkerStyle,
         bottomIndicatorSource: BottomIndicatorSource,
-        bottomIndicatorMetric: HardwareMonitorMetric = .cpuUsage
+        bottomIndicatorMetric: BottomIndicatorMetric = .cpuUsage
     ) -> IconSlotBindingsV1 {
         let derived = IconSlotBindingsV1.migrated(
             from: Self.iconConfiguration(

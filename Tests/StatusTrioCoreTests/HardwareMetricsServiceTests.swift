@@ -580,7 +580,7 @@ final class HardwareMetricsServiceTests: XCTestCase {
     func testPanelDemandUsesConfiguredCadence() async {
         let clock = Clock()
         let service = HardwareMetricsService(automaticScheduling: false, now: { clock.date }, reader: { _, _ in .empty })
-        service.panelIntervalSeconds = 5
+        service.panelCadenceProvider = { _ in 5 }
         service.begin(.panel, metrics: [.networkDownload])
         XCTAssertEqual(service.currentTickIntervalForTesting, 5, "panel-open cadence is configurable")
         service.begin(.menuBarArc, metrics: [.networkDownload])
@@ -593,7 +593,7 @@ final class HardwareMetricsServiceTests: XCTestCase {
     func testBackgroundDemandUsesConfiguredCadence() async {
         let clock = Clock()
         let service = HardwareMetricsService(automaticScheduling: false, now: { clock.date }, reader: { _, _ in .empty })
-        service.backgroundIntervalSeconds = 30
+        service.backgroundCadenceProvider = { _ in 30 }
         service.begin(.background, metrics: [.networkDownload])
         XCTAssertEqual(service.currentTickIntervalForTesting, 30)
         service.begin(.panel, metrics: [.networkDownload])
@@ -618,6 +618,37 @@ final class HardwareMetricsServiceTests: XCTestCase {
         observable.markStale(now: t0.addingTimeInterval(400))
         XCTAssertNil(observable.snapshot.samples[.networkDownload]?.value)
         XCTAssertNil(observable.summarySnapshot(at: t0.addingTimeInterval(400)).networkDownload.value)
+    }
+
+    func testPressureSamplesImmediatelyAtTwoSecondCadenceAndClearsOnLastEnd() async {
+        let clock = Clock()
+        let recorder = Recorder()
+        let service = HardwareMetricsService(automaticScheduling: false,
+                                             now: { clock.date }, reader: recorder.waitingReader())
+        service.begin(.menuBarArc, metrics: [.memoryPressure])
+        XCTAssertEqual(service.currentTickIntervalForTesting, 2)
+        await awaitReadingStarted(recorder)
+        XCTAssertEqual(recorder.calls, [[.memoryPressure]])
+        guard let first = recorder.continuations.first else { return XCTFail("first sample missing") }
+        first.resume(returning: .init(memoryPressure: .init(level: .normal, sampledAt: clock.date)))
+        await awaitSettled(service, recorder)
+        XCTAssertEqual(service.observable.snapshot.memoryPressure?.level, .normal)
+
+        clock.advance(1)
+        service.refreshIfNeeded(forceFamilies: [])
+        XCTAssertFalse(service.isAwaitingReadForTesting)
+        clock.advance(1)
+        service.refreshIfNeeded(forceFamilies: [])
+        await awaitReadingStarted(recorder, count: 2)
+        XCTAssertEqual(recorder.calls, [[.memoryPressure], [.memoryPressure]])
+        guard recorder.continuations.count == 2 else { return XCTFail("second sample missing") }
+
+        service.end(.menuBarArc)
+        XCTAssertNil(service.observable.snapshot.memoryPressure)
+        recorder.continuations[1].resume(returning: .init(memoryPressure: .init(level: .critical, sampledAt: clock.date)))
+        await awaitSettled(service, recorder)
+        XCTAssertFalse(service.isRunning)
+        XCTAssertNil(service.observable.snapshot.memoryPressure)
     }
 
     func testDiskDemandUsesOneSecondCadenceAndStopsOnEnd() async {
@@ -648,7 +679,7 @@ final class HardwareMetricsServiceTests: XCTestCase {
         let recorder = Recorder()
         let service = HardwareMetricsService(automaticScheduling: false, now: { clock.date },
                                              reader: recorder.countingReader(usage: 10))
-        service.panelIntervalSeconds = 5
+        service.panelCadenceProvider = { _ in 5 }
         service.begin(.menuBarArc, metrics: [.cpuUsage])
         service.begin(.dock, metrics: [.cpuUsage])
         service.begin(.panel, metrics: [.cpuUsage, .diskRead, .diskWrite])
@@ -662,7 +693,7 @@ final class HardwareMetricsServiceTests: XCTestCase {
 
         // A slow panel sensor that no icon needs stays at the panel cadence even
         // while an unrelated fast metric is also demanded.
-        service.panelIntervalSeconds = 3
+        service.panelCadenceProvider = { _ in 3 }
         service.begin(.panel, metrics: [.cpuTemperature])
         service.begin(.menuBarCenter, metrics: [.networkDownload])
         XCTAssertEqual(service.intervalForTesting(.cpuTemperature), 4,

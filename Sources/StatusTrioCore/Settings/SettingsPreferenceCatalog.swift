@@ -32,6 +32,10 @@ enum SettingsPreferenceCatalog {
         var result: [String: Value] = [:]
         var warnings: [String] = []
         for key in values.keys.sorted() {
+            if key == Self.legacyPanelRefreshKey {
+                warnings.append(contentsOf: Self.migrateLegacyPanelRefresh(values[key], into: &result, existing: values))
+                continue
+            }
             guard let preference = catalog[key] else {
                 warnings.append("Unknown preference: \(key)")
                 continue
@@ -66,6 +70,40 @@ enum SettingsPreferenceCatalog {
             + bluetoothPreferences + brightnessPreferences + panelPreferences
     }
 
+    /// The single pre-#392 hardware refresh interval, retired in favour of the
+    /// six per-group settings. An export made before the split still carries it;
+    /// fold it into the group settings instead of reporting it as unknown.
+    private static let legacyPanelRefreshKey = "hardwarePanelRefreshSeconds"
+
+    private static let refreshGroupStorageKeys: [(group: HardwareRefreshGroup, key: String)] = [
+        (.cpuUsage, "hardwareCPUUsageRefreshSeconds"),
+        (.gpuUsage, "hardwareGPUUsageRefreshSeconds"),
+        (.memory, "hardwareMemoryRefreshSeconds"),
+        (.network, "hardwareNetworkRefreshSeconds"),
+        (.temperature, "hardwareTemperatureRefreshSeconds"),
+        (.disk, "hardwareDiskRefreshSeconds"),
+    ]
+
+    /// Seeds each group the document does not set explicitly, clamped to the
+    /// group's own floor and the shared 8 s cap — the same rule the store applies
+    /// when it seeds a legacy value on first launch. Explicit new keys win.
+    private static func migrateLegacyPanelRefresh(
+        _ value: Value?, into result: inout [String: Value], existing: [String: Value]
+    ) -> [String] {
+        guard let value, case let .number(seconds) = value, seconds.isFinite else {
+            return ["Invalid preference; using default: \(legacyPanelRefreshKey)"]
+        }
+        let rounded = Int(seconds.rounded())
+        guard (1...8).contains(rounded) else {
+            return ["Invalid preference; using default: \(legacyPanelRefreshKey)"]
+        }
+        for entry in refreshGroupStorageKeys where existing[entry.key] == nil {
+            let seeded = min(max(rounded, entry.group.defaultSeconds), 8)
+            result[entry.key] = .number(Double(seeded))
+        }
+        return []
+    }
+
     private static var brightnessPreferences: [Preference] {
         [
             boolean(
@@ -98,6 +136,8 @@ enum SettingsPreferenceCatalog {
     private static var iconPreferences: [Preference] {
         [
             enumeration("statusStripLayout", \.statusStripLayout, default: .unified),
+            number(SettingsStore.footerMetricTextScaleDefaultsKey, \.footerMetricTextScale,
+                   default: StatusStrip.defaultMetricTextScale, range: StatusStrip.metricTextScaleRange),
             number("iconSize", \.iconSize, default: SettingsStore.defaultIconSize, range: SettingsStore.iconSizeRange),
             number("batterySymbolScale", \.batterySymbolScale,
                    default: SettingsStore.defaultBatterySymbolScale, range: SettingsStore.batterySymbolScaleRange),
@@ -120,6 +160,10 @@ enum SettingsPreferenceCatalog {
             enumeration("inputSourceMarkerStyle", \.inputSourceMarkerStyle, default: .systemIcon),
             boolean("prioritizesNetworkErrors", \.prioritizesNetworkErrors, default: true),
             bluetoothColorPreference,
+            // Deliberately excluded: the AirPods ring arc colours (left / right /
+            // single) are part of the icon appearance rebuilt from the settings
+            // surface, like the ring source, dual layout and fallback, so they
+            // stay out of the transfer document.
             mapped("bluetoothAudioIconChoiceRawValue", \.bluetoothAudioIconChoiceRawValue,
                    default: BluetoothAudioIconChoice.automatic.rawValue,
                    decode: { value in
@@ -213,8 +257,20 @@ enum SettingsPreferenceCatalog {
             optionalBoolean("popupVolumeScrollFeedbackOverride", \.popupVolumeScrollFeedbackOverride),
             boolean("hardwareBackgroundHistoryEnabled", \.hardwareBackgroundHistoryEnabled,
                     default: SettingsStore.defaultHardwareBackgroundHistoryEnabled),
-            integer("hardwarePanelRefreshSeconds", \.hardwarePanelRefreshSeconds,
-                    default: SettingsStore.defaultHardwarePanelRefreshSeconds, range: 1...8),
+            integer("hardwareCPUUsageRefreshSeconds", \.hardwareCPUUsageRefreshSeconds,
+                    default: HardwareRefreshGroup.cpuUsage.defaultSeconds, range: 2...8),
+            integer("hardwareGPUUsageRefreshSeconds", \.hardwareGPUUsageRefreshSeconds,
+                    default: HardwareRefreshGroup.gpuUsage.defaultSeconds, range: 2...8),
+            integer("hardwareMemoryRefreshSeconds", \.hardwareMemoryRefreshSeconds,
+                    default: HardwareRefreshGroup.memory.defaultSeconds, range: 2...8),
+            integer("hardwareNetworkRefreshSeconds", \.hardwareNetworkRefreshSeconds,
+                    default: HardwareRefreshGroup.network.defaultSeconds, range: 1...8),
+            integer("hardwareTemperatureRefreshSeconds", \.hardwareTemperatureRefreshSeconds,
+                    default: HardwareRefreshGroup.temperature.defaultSeconds, range: 4...8),
+            integer("hardwareDiskRefreshSeconds", \.hardwareDiskRefreshSeconds,
+                    default: HardwareRefreshGroup.disk.defaultSeconds, range: 1...8),
+            integer("hardwareTopAppsRefreshSeconds", \.hardwareTopAppsRefreshSeconds,
+                    default: SettingsStore.defaultHardwareTopAppsRefreshSeconds, range: 1...30),
             integer("hardwareHistoryWindowMinutes", \.hardwareHistoryWindowMinutes,
                     default: SettingsStore.defaultHardwareHistoryWindowMinutes,
                     range: 1...5),
@@ -234,12 +290,13 @@ enum SettingsPreferenceCatalog {
                         default: .used, allowed: RingValueDisplayMode.allCases),
             enumeration("ssdRingDisplayMode", \.ssdRingDisplayMode,
                         default: .used, allowed: RingValueDisplayMode.allCases),
+            boolean("hardwareRingSplitGapProgress", \.hardwareRingSplitGapProgress, default: false),
             boolean("hardwareTemperatureMonitoringEnabled",
                     \.hardwareTemperatureMonitoringEnabled, default: true),
             // Apply the temperature switch before restoring the metric it makes available.
             enumeration("bottomIndicatorMetric", \.bottomIndicatorMetric,
                         default: SettingsStore.defaultBottomIndicatorMetric,
-                        allowed: HardwareMonitorMetric.allCases.filter { !$0.usesStatusSnapshot }),
+                        allowed: BottomIndicatorMetric.allCases.filter { $0.hardwareMetric?.usesStatusSnapshot != true }),
             enumeration("cpuRingCenterContent", \.cpuRingCenterContent,
                         default: .temperature, allowed: HardwareRingCenterContent.allCases),
             enumeration("gpuRingCenterContent", \.gpuRingCenterContent,
@@ -402,6 +459,16 @@ enum SettingsPreferenceCatalog {
                                  case let .string(raw) = value, validBatteryColor(raw) else { continue }
                            colors.setSelection(BatteryStatusColorSelection(storageValue: raw), for: role)
                        }
+                       // #389: an export from before the connected role existed
+                       // carries only the merged charging colour. Inherit it for
+                       // connected so importing an old file keeps the same look
+                       // instead of resetting the new role to system.
+                       if !roles.keys.contains(BatteryStatusColorRole.connected.rawValue),
+                          let chargingRaw = roles[BatteryStatusColorRole.charging.rawValue],
+                          case let .string(raw) = chargingRaw, validBatteryColor(raw) {
+                           colors.setSelection(
+                               BatteryStatusColorSelection(storageValue: raw), for: .connected)
+                       }
                        if colors != store.batteryStatusColors {
                            store.batteryStatusColors = colors
                        }
@@ -416,6 +483,8 @@ enum SettingsPreferenceCatalog {
 
     /// A color object may be sparse just like the top-level preferences. Invalid
     /// roles reset only that role, and absent roles preserve the current palette.
+    /// The one intentional exception is handled in the write closure above: a
+    /// pre-#389 export with no connected role inherits its charging colour.
     private static func prepareBatteryColors(_ roles: [String: Value]) -> (values: [String: Value], warnings: [String]) {
         var result: [String: Value] = [:]
         var warnings: [String] = []

@@ -28,21 +28,33 @@ struct AppIconBottomIndicatorView: View {
                 stylePicker
                 SettingsDivider()
                 metricPicker
+                if store.bottomIndicatorMetric != .memoryPressure {
+                    SettingsDivider()
+                    metricTextSizeRow
+                }
                 LiveIconSettingsStatus { output in
                     let metric = localization.string(store.bottomIndicatorMetric.titleKey)
                     let reading: String
-                    if output.scene.statusStrip?.footerMetric == store.bottomIndicatorMetric,
-                       let value = output.scene.footer?.metricReading {
-                        reading = value
+                    if output.scene.statusStrip?.footerMetric == store.bottomIndicatorMetric {
+                        let footer = output.scene.footer
+                        let pressure = store.bottomIndicatorMetric == .memoryPressure
+                            ? MemoryPressureFooterMapper.title(for: footer).map { localization.string($0) }
+                            : nil
+                        reading = pressure ?? footer?.metricReading
+                            ?? localization.string(.iconResolutionUnavailableUnavailable)
                     } else {
                         reading = localization.string(.iconResolutionUnavailableUnavailable)
                     }
                     return "\(metric) · \(reading)"
                 }
-                metricColorRows
-                SettingsDivider()
-                // Mirror the ring's advanced settings for the selected metric.
-                HardwareMetricAdvancedRow(store: store, metric: store.bottomIndicatorMetric)
+                if let metric = store.bottomIndicatorMetric.hardwareMetric {
+                    metricColorRows(for: metric)
+                    SettingsDivider()
+                    HardwareMetricAdvancedRow(store: store, metric: metric)
+                } else {
+                    SettingsDivider()
+                    memoryPressureLegend
+                }
             }
 
             LocalIconPluginSlotPicker(slot: .footer, store: store)
@@ -157,19 +169,44 @@ struct AppIconBottomIndicatorView: View {
                 BottomIndicatorSourcePreview(
                     source: source,
                     metric: store.bottomIndicatorMetric,
-                    baseColor: store.hardwareColor(for: store.bottomIndicatorMetric),
+                    baseColor: store.bottomIndicatorMetric.hardwareMetric.map { store.hardwareColor(for: $0) },
                     bluetoothOptions: store.bluetoothVolumePreviewOptions,
                     style: store.bottomIndicatorStyle(for: source),
                     strokeScale: store.ringStrokeStyle.scale,
+                    metricTextScale: store.footerMetricTextScale,
                     isDarkBackground: previewIsDark
                 )
             }
         )
     }
 
-    /// The hardware-monitor metric the `.metric` source draws. Mirrors the ring
-    /// page's top-marker metric menu so the bottom indicator can show any of the
-    /// same readings (CPU/GPU usage and temperature, memory, fan, network speed).
+    private var metricTextSizeRow: some View {
+        let title = localization.string(.settingsFooterMetricTextSize)
+        let percent = store.footerMetricTextScale.formatted(.percent.precision(.fractionLength(0)))
+        return SettingsRow(
+            title: title,
+            leading: { SettingsIcon(symbol: "textformat.size", tint: .gray) },
+            trailing: {
+                HStack(spacing: 8) {
+                    Slider(value: Binding(
+                        get: { store.footerMetricTextScale },
+                        set: { store.setFooterMetricTextScaleFromSlider($0) }
+                    ), in: StatusStrip.metricTextScaleRange)
+                        .frame(width: 130)
+                        .controlSize(.small)
+                        .accessibilityLabel(title)
+                        .accessibilityValue(percent)
+                        .accessibilityIdentifier("appIcon.footerMetricTextSize")
+                    Text(percent)
+                        .font(.system(size: 12, design: .monospaced))
+                        .foregroundStyle(.secondary)
+                        .frame(width: 44, alignment: .trailing)
+                        .accessibilityHidden(true)
+                }
+            }
+        )
+    }
+
     private var metricPicker: some View {
         SettingsGroupedMenuRow(
             symbol: store.bottomIndicatorMetric.systemImage,
@@ -182,18 +219,18 @@ struct AppIconBottomIndicatorView: View {
         )
     }
 
-    /// Metric choices grouped like the ring's top marker. Temperature readings
-    /// only appear when temperature monitoring is enabled, matching the ring.
-    private var footerMetricGroups: [(title: String, options: [HardwareMonitorMetric])] {
-        let cpu: [HardwareMonitorMetric] =
+    /// The CPU and GPU groups follow the ring's temperature monitoring setting.
+    private var footerMetricGroups: [(title: String, options: [BottomIndicatorMetric])] {
+        let cpu: [BottomIndicatorMetric] =
             store.hardwareTemperatureMonitoringEnabled ? [.cpuUsage, .cpuTemperature] : [.cpuUsage]
-        let gpu: [HardwareMonitorMetric] =
+        let gpu: [BottomIndicatorMetric] =
             store.hardwareTemperatureMonitoringEnabled ? [.gpuUsage, .gpuTemperature] : [.gpuUsage]
         return [
             ("CPU", cpu),
             ("GPU", gpu),
+            (localization.string(.hardwareDetailTitleMemory), [.memoryUsage, .memoryPressure]),
             (localization.string(.settingsHardwareRingGroupOther),
-             [.memoryUsage, .batteryTemperature, .fan, .downloadSpeed, .uploadSpeed]),
+             [.batteryTemperature, .fan, .downloadSpeed, .uploadSpeed]),
         ]
     }
 
@@ -202,7 +239,7 @@ struct AppIconBottomIndicatorView: View {
     /// change takes effect on the top arc, the bottom indicator and the system
     /// monitoring panel alike.
     @ViewBuilder
-    private var metricColorRows: some View {
+    private func metricColorRows(for metric: HardwareMonitorMetric) -> some View {
         SettingsDivider()
         SettingsToggleRow(
             symbol: "circle.lefthalf.filled",
@@ -229,22 +266,22 @@ struct AppIconBottomIndicatorView: View {
         if !store.hardwareRingConfiguration.color.monochrome {
             SettingsDivider()
             SettingsRow(
-                title: localization.string(store.bottomIndicatorMetric.titleKey),
+                title: localization.string(metric.titleKey),
                 subtitle: nil,
                 leading: {
-                    SettingsIcon(symbol: store.bottomIndicatorMetric.systemImage, tint: .purple)
+                    SettingsIcon(symbol: metric.systemImage, tint: .purple)
                 },
                 trailing: {
                     IconDesignerColorWell(
                         selection: Binding(
                             get: {
                                 IconAppearanceColorConversion.color(
-                                    from: store.hardwareColor(for: store.bottomIndicatorMetric))
+                                    from: store.hardwareColor(for: metric))
                             },
                             set: {
                                 store.setHardwareColor(
                                     IconAppearanceColorConversion.iconRGBA(from: $0),
-                                    for: store.bottomIndicatorMetric)
+                                    for: metric)
                             }
                         ),
                         onEditingChanged: { _ in }
@@ -252,6 +289,33 @@ struct AppIconBottomIndicatorView: View {
                     .frame(width: 44, height: 22)
                 }
             )
+        }
+    }
+
+    private var memoryPressureLegend: some View {
+        SettingsRow(
+            title: localization.string(.hardwareDetailPressure),
+            leading: { SettingsIcon(symbol: "memorychip", tint: .purple) },
+            trailing: {
+                HStack(spacing: 12) {
+                    pressureLabel(.normal, title: .hardwareDetailPressureNormal)
+                    pressureLabel(.warning, title: .hardwareDetailPressureWarning)
+                    pressureLabel(.critical, title: .hardwareDetailPressureCritical)
+                }
+                .font(.system(size: 11))
+            }
+        )
+    }
+
+    private func pressureLabel(_ level: MemoryPressureLevel, title: LocalizationKey) -> some View {
+        HStack(spacing: 4) {
+            Circle()
+                .fill(MemoryPressureFooterMapper.color(for: level)
+                    .map { IconAppearanceColorConversion.color(from: $0) } ?? Color.secondary)
+                .frame(width: 7, height: 7)
+                .accessibilityHidden(true)
+            Text(localization.string(title))
+                .foregroundStyle(.secondary)
         }
     }
 
@@ -312,11 +376,12 @@ struct AppIconBottomIndicatorView: View {
 /// a fixed sample so every card shows exactly what the footer will look like.
 private struct BottomIndicatorSourcePreview: View {
     let source: BottomIndicatorSource
-    let metric: HardwareMonitorMetric
+    let metric: BottomIndicatorMetric
     let baseColor: IconRGBA?
     let bluetoothOptions: BluetoothAudioIconOptions
     let style: VolumeDisplayStyle
     let strokeScale: Double
+    let metricTextScale: Double
     let isDarkBackground: Bool
 
     var body: some View {
@@ -329,6 +394,7 @@ private struct BottomIndicatorSourcePreview: View {
                 bluetoothOptions: bluetoothOptions,
                 style: style,
                 strokeScale: strokeScale,
+                metricTextScale: metricTextScale,
                 isDarkBackground: isDarkBackground
             ) {
                 Image(nsImage: image)
@@ -374,17 +440,18 @@ private enum BottomIndicatorPreviewScene {
 
     static func image(
         for source: BottomIndicatorSource,
-        metric: HardwareMonitorMetric,
+        metric: BottomIndicatorMetric,
         baseColor: IconRGBA?,
         bluetoothOptions: BluetoothAudioIconOptions,
         style: VolumeDisplayStyle,
         strokeScale: Double,
+        metricTextScale: Double,
         isDarkBackground: Bool
     ) -> NSImage? {
         if source == .metric {
             let scene = BottomIndicatorMetricPreview.scene(
                 metric: metric, style: style, strokeScale: strokeScale,
-                baseColor: baseColor)
+                baseColor: baseColor, textScale: metricTextScale)
             return StatusIconPreviewCache.shared.stripImage(
                 scene: scene,
                 size: 28,

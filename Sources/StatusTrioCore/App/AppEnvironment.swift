@@ -563,10 +563,12 @@ final class AppEnvironment {
             refreshInterval: refreshInterval,
             bluetoothDevices: BluetoothDeviceController(
                 // The accessory power sources are the second battery source, read
-                // only for the devices the paired-device report carries no level
-                // for; accessory notifications are what make a level refresh
-                // between the safety-net polls.
-                accessoryBatteryReader: PmsetAccessoryBatteryWorker(),
+                // only for a level the paired-device report cannot supply and for
+                // the charging state the summary rows draw. IOKit is the cheap
+                // path; `pmset` stays as the fallback when the private symbol or
+                // its coverage is not there. Accessory notifications are what
+                // make a refresh happen between the safety-net polls.
+                accessoryBatteryReader: SystemAccessoryBatteryWorker(),
                 connectionEvents: IOBluetoothConnectionEventMonitor(),
                 accessoryBatteryEvents: AccessoryPowerNotifyEventMonitor(),
                 // Constructing the adapter is inert; its CBCentralManager is
@@ -588,6 +590,15 @@ final class AppEnvironment {
         // animation can be compared on and off on a machine that is not charging.
         if ChargingEffectTestMode.shouldForceChargingInput() {
             settings.setChargingEffectTestInputEnabled(true)
+        }
+        // Apply a per-worktree development test profile after settings migration
+        // and before controllers/monitoring start, so a dev build boots already in
+        // the state the task needs. Release/App Store builds never load one.
+        if DevelopmentProfileLoader.isDevelopmentBuild() {
+            let appVersion = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String
+            let profileService = SettingsServiceFactory.make(for: settings, appVersion: appVersion)
+            let run = DevelopmentProfileBootstrap.runAtLaunch(service: profileService)
+            NSLog("StatusTrio development profile: %@", run.log.joined(separator: " | "))
         }
         let store = makeStore(
             batteryMonitor: BatteryMonitor(),
@@ -632,7 +643,8 @@ final class AppEnvironment {
                 ),
                 menuBarSize: appearance.iconSize,
                 testsChargingEffect: settings.testsChargingEffect,
-                statusStripLayout: settings.statusStripLayout
+                statusStripLayout: settings.statusStripLayout,
+                footerMetricTextScale: settings.footerMetricTextScale
             ),
             snapshots: store.$snapshot
                 .combineLatest(settings.$simulatesNoBattery)

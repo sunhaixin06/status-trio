@@ -17,6 +17,7 @@ TELEMETRY_PRODUCTION="${TELEMETRY_PRODUCTION:-0}"
 DISABLE_PRODUCTION_UPDATES="${DISABLE_PRODUCTION_UPDATES:-0}"
 APP_OUTPUT_PATH="${APP_OUTPUT_PATH:-$ROOT/dist/StatusTrio.app}"
 PRIVILEGED_HELPER="${PRIVILEGED_HELPER:-1}"
+REUSE_DIY_MOBILE_BATTERY="${STATUS_TRIO_DIY_REUSE_MOBILE_BATTERY:-0}"
 
 case "$OPEN_APP" in
     open|no-open) ;;
@@ -83,6 +84,26 @@ case "$PRIVILEGED_HELPER" in
     0|1) ;;
     *)
         echo "Error: PRIVILEGED_HELPER must be 0 or 1." >&2
+        exit 2
+        ;;
+esac
+
+MOBILE_BATTERY_PACKAGE="$ROOT/.build/mobile-battery/package"
+case "$REUSE_DIY_MOBILE_BATTERY" in
+    0) ;;
+    1)
+        if [[ "$BUNDLE_ID" != local.statustrio.diy.status-strip || "$OPEN_APP" != no-open ||
+              "$DISABLE_PRODUCTION_UPDATES" != 1 || "$UNIVERSAL_BUILD" != 0 ||
+              "${CODE_SIGN_IDENTITY:--}" != - ]]; then
+            echo 'Error: cached MobileBattery reuse is only for offline, ad-hoc DIY builds.' >&2
+            exit 2
+        fi
+        notices="$MOBILE_BATTERY_PACKAGE/Resources/MobileBatteryLicenses"
+        cmp "$ROOT/Support/mobile-battery-dependencies.json" "$notices/dependencies.json"
+        diff -qr -x dependencies.json "$ROOT/Support/MobileBatteryHelper/ThirdPartyNotices" "$notices"
+        ;;
+    *)
+        echo 'Error: STATUS_TRIO_DIY_REUSE_MOBILE_BATTERY must be 0 or 1.' >&2
         exit 2
         ;;
 esac
@@ -169,9 +190,12 @@ ditto "$SPARKLE_FRAMEWORK_SOURCE" "$CONTENTS/Frameworks/Sparkle.framework"
 # The mobile-device helper is built from exact upstream commits. Its runtime
 # dependency graph is packaged into the app so users do not need Homebrew.
 build_phase mobile-battery-total
-bash "$ROOT/scripts/build-mobile-battery-helper.sh"
+if [[ "$REUSE_DIY_MOBILE_BATTERY" == 1 ]]; then
+    echo 'Reusing local MobileBattery binaries matching the dependency manifest and reviewed licenses.'
+else
+    bash "$ROOT/scripts/build-mobile-battery-helper.sh"
+fi
 build_phase bundle-assembly-and-icon-assets
-MOBILE_BATTERY_PACKAGE="$ROOT/.build/mobile-battery/package"
 mkdir -p "$CONTENTS/Helpers" "$CONTENTS/Frameworks/MobileBattery" "$CONTENTS/Resources/MobileBatteryLicenses"
 ditto "$MOBILE_BATTERY_PACKAGE/Helpers/StatusTrioMobileBatteryHelper" "$CONTENTS/Helpers/StatusTrioMobileBatteryHelper"
 ditto "$MOBILE_BATTERY_PACKAGE/Frameworks/MobileBattery" "$CONTENTS/Frameworks/MobileBattery"
@@ -265,6 +289,20 @@ fi
 
 if [[ -n "$DEVELOPMENT_CODENAME" ]]; then
     /usr/libexec/PlistBuddy -c "Add :STDevelopmentCodename string $DEVELOPMENT_CODENAME" "$CONTENTS/Info.plist"
+fi
+
+# Embed a per-worktree development test profile before signing. Only a
+# development identity may receive the resource and its opt-in marker; a release
+# build (no codename / production bundle id) never copies it, so the release
+# contract "no dev profile, no dev-profile marker" holds by construction.
+if [[ -n "$DEVELOPMENT_CODENAME" && "$BUNDLE_ID" == com.lingsmbp.StatusTrio.dev.* ]]; then
+    DEV_PROFILE_SOURCE="${STATUS_TRIO_DEV_PROFILE_SOURCE:-$ROOT/.dev-profile.json}"
+    if [[ -f "$DEV_PROFILE_SOURCE" ]]; then
+        cp "$DEV_PROFILE_SOURCE" "$CONTENTS/Resources/dev-profile.json"
+        /usr/libexec/PlistBuddy -c "Add :STAllowsDevProfile bool true" "$CONTENTS/Info.plist"
+        /usr/libexec/PlistBuddy -c "Add :STDevProfileEmbedded bool true" "$CONTENTS/Info.plist"
+        echo "Embedded development profile: $DEV_PROFILE_SOURCE"
+    fi
 fi
 
 if [[ -n "$SU_FEED_URL" ]]; then

@@ -31,6 +31,7 @@ struct BatteryStatusColorBaselineTests {
     func defaultAccentsMatchTheDIYPalette(dark: Bool) throws {
         let appearance = try #require(NSAppearance(named: dark ? .darkAqua : .aqua))
         let palette = BatteryStatusColorPalette.resolved(appearance: appearance, increasedContrast: false)
+        #expect(palette.connected == palette.charging)
         let expected: [(BatteryStatusColorRole, CGFloat, CGFloat, CGFloat)] = dark
             ? [(.charging, 113, 201, 174), (.lowPower, 221, 180, 106), (.highPower, 145, 184, 232), (.critical, 243, 142, 145)]
             : [(.charging, 23, 108, 86), (.lowPower, 129, 91, 22), (.highPower, 54, 98, 148), (.critical, 175, 63, 69)]

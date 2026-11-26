@@ -18,6 +18,14 @@ enum StatusStripLayout: String, CaseIterable, Identifiable, Sendable {
 
 /// Only values that are visible in a preset, not SSIDs, device names or timestamps.
 struct StatusStrip: Hashable, Sendable {
+    static let defaultMetricTextScale = 1.0
+    static let metricTextScaleRange = 0.85...1.20
+
+    static func clampedMetricTextScale(_ scale: Double) -> Double {
+        guard scale.isFinite else { return defaultMetricTextScale }
+        return min(metricTextScaleRange.upperBound, max(metricTextScaleRange.lowerBound, scale))
+    }
+
     enum Link: Hashable, Sendable {
         case wifi(String?), wired, other, offline, unknown
     }
@@ -40,7 +48,8 @@ struct StatusStrip: Hashable, Sendable {
     let usesSystemBattery: Bool
     let showsOutageInCenter: Bool
     let centerShowsNetwork: Bool
-    let footerMetric: HardwareMonitorMetric?
+    let footerMetric: BottomIndicatorMetric?
+    let footerMetricTextScale: Double
     /// An empty array means this slot isn't showing AirPods. In split mode an
     /// unknown ear stays nil, even when the legacy ring mirrors the other ear.
     let airPodsLevels: [Int?]
@@ -51,12 +60,16 @@ struct StatusStrip: Hashable, Sendable {
 
     init(layout: StatusStripLayout, snapshot: StatusSnapshot, threshold: Int, usesSystemBattery: Bool = true,
          prioritizesNetworkErrors: Bool = true, showsVolume: Bool = true, centerShowsNetwork: Bool = true,
-         footerMetric: HardwareMonitorMetric? = nil, airPodsLevels: [Int?] = [], airPodsMarkerScale: Double = 1,
+         footerMetric: BottomIndicatorMetric? = nil, footerMetricTextScale: Double = Self.defaultMetricTextScale,
+         airPodsLevels: [Int?] = [], airPodsMarkerScale: Double = 1,
          showsAirPodsSymbol: Bool = false) {
         self.layout = layout
         self.usesSystemBattery = usesSystemBattery
         self.centerShowsNetwork = centerShowsNetwork
         self.footerMetric = footerMetric
+        // Ignore the custom scale in other modes so their render keys stay stable.
+        self.footerMetricTextScale = footerMetric == nil ? Self.defaultMetricTextScale
+            : Self.clampedMetricTextScale(footerMetricTextScale)
         self.airPodsLevels = airPodsLevels
         self.airPodsMarkerScale = airPodsLevels.isEmpty ? 1 : airPodsMarkerScale
         self.showsAirPodsSymbol = !airPodsLevels.isEmpty && showsAirPodsSymbol
@@ -107,6 +120,7 @@ struct StatusStrip: Hashable, Sendable {
         showsOutageInCenter = false
         centerShowsNetwork = true
         footerMetric = nil
+        footerMetricTextScale = Self.defaultMetricTextScale
         airPodsLevels = []
         airPodsMarkerScale = 1
         showsAirPodsSymbol = false
@@ -124,6 +138,7 @@ struct StatusStrip: Hashable, Sendable {
             && lowBattery == other.lowBattery && link == other.link && usesSystemBattery == other.usesSystemBattery
             && showsOutageInCenter == other.showsOutageInCenter
             && centerShowsNetwork == other.centerShowsNetwork && footerMetric == other.footerMetric
+            && footerMetricTextScale == other.footerMetricTextScale
             && airPodsLevels == other.airPodsLevels
             && airPodsMarkerScale == other.airPodsMarkerScale
             && showsAirPodsSymbol == other.showsAirPodsSymbol

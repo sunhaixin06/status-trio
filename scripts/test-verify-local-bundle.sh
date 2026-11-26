@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 set -euo pipefail
+unset STATUS_TRIO_DIY_REUSE_MOBILE_BATTERY
 
 ROOT="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
 WORK="$(mktemp -d "${TMPDIR:-/tmp}/StatusTrioVerifyLocalBundle.XXXXXX")"
@@ -143,6 +144,11 @@ helper_line="$(grep -nF "helper-bundle dist/StatusTrio.app" "$VERIFY_BUNDLE_TRAC
 if [[ -s "$WORK/repo/.build/local-verification/status.txt" ]]; then
     fail "successful bundle verification wrote a failure record"
 fi
+
+: > "$VERIFY_BUNDLE_TRACE"
+STATUS_TRIO_DIY_REUSE_MOBILE_BATTERY=1 bash "$WORK/repo/scripts/verify-local.sh" full >"$WORK/diy.log" 2>&1
+grep -Fq "build-app release no-open local.statustrio.diy.status-strip Status Trio DIY 0" "$VERIFY_BUNDLE_TRACE" ||
+    fail "DIY reuse did not select the isolated local bundle identity"
 
 cat > "$WORK/repo/scripts/verify-mobile-battery-bundle.sh" <<'SH'
 #!/usr/bin/env bash

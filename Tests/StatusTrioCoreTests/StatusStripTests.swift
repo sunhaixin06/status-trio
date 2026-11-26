@@ -178,6 +178,51 @@ final class StatusStripTests: XCTestCase {
         XCTAssertNotEqual(try data(dockA), try data(dockB))
     }
 
+    func testCustomMetricShowsNoGlyphAndScalesOnlyItsReading() throws {
+        let appearance = try XCTUnwrap(NSAppearance(named: .aqua))
+        for style in VolumeDisplayStyle.allCases {
+            func sample(_ metric: BottomIndicatorMetric, _ scale: Double,
+                        layout: StatusStripLayout = .unified, reading: String = "43\u{00B0}C") -> IconSceneState {
+                let strip = StatusStrip(layout: layout, snapshot: snapshot(), threshold: 20,
+                                        footerMetric: metric, footerMetricTextScale: scale)
+                let footer = HardwareRingMapper.footerBar(progress: 0.5, color: .primary, style: style,
+                                                          strokeScale: RingStrokeStyle.bold.scale, reading: reading)
+                return IconSceneState(footer: footer, bottomIndicatorSource: .metric, statusStrip: strip)
+            }
+            func preview(_ scene: IconSceneState) throws -> CGImage {
+                let image = try XCTUnwrap(StatusStripRenderer.indicatorImage(
+                    scene: scene, scale: 2, appearance: appearance))
+                return try XCTUnwrap(image.cgImage(forProposedRect: nil, context: nil, hints: nil))
+            }
+
+            let smallScene = sample(.cpuTemperature, 0.85)
+            let largeScene = sample(.cpuTemperature, 1.20)
+            let small = try preview(smallScene)
+            let large = try preview(largeScene)
+            XCTAssertEqual(try data(large), try data(preview(sample(.fan, 1.20))), "\(style)")
+            let gauge = style == .verticalBar ? CGRect(x: 66, y: 0, width: 20, height: 48)
+                : CGRect(x: 0, y: 27, width: 86, height: 21)
+            XCTAssertEqual(try data(XCTUnwrap(small.cropping(to: gauge))),
+                           try data(XCTUnwrap(large.cropping(to: gauge))), "\(style)")
+            XCTAssertNotEqual(try data(small), try data(large), "\(style)")
+            XCTAssertEqual(try PixelBuffer(image: large).maximumAlphaOnEdges, 0)
+            XCTAssertNotEqual(try data(preview(sample(.downloadSpeed, 0.85, reading: "125.8 MB/s"))),
+                              try data(preview(sample(.downloadSpeed, 1.20, reading: "125.8 MB/s"))), "\(style)")
+
+            for layout in StatusStripLayout.allCases where layout != .alerts {
+                let small = try raster(sample(.cpuTemperature, 0.85, layout: layout), dark: false)
+                let large = try raster(sample(.cpuTemperature, 1.20, layout: layout), dark: false)
+                XCTAssertEqual(small.width, large.width)
+                XCTAssertEqual(small.height, large.height)
+                XCTAssertNotEqual(try data(small), try data(large), "\(layout), \(style)")
+                XCTAssertEqual(try PixelBuffer(image: large).maximumAlphaOnEdges, 0)
+            }
+            let smallDock = try XCTUnwrap(DockIconRenderer.tileImage(scene: smallScene, backgroundStyle: .light, pixelLength: 128))
+            let largeDock = try XCTUnwrap(DockIconRenderer.tileImage(scene: largeScene, backgroundStyle: .light, pixelLength: 128))
+            XCTAssertNotEqual(try data(smallDock), try data(largeDock), "\(style)")
+        }
+    }
+
     func testAnimationsRespectTheSurfaceSettingInAllLayouts() throws {
         let first = ChargingEffectPhase(step: 3, stepsPerCycle: 40, kind: .steady)
         let later = ChargingEffectPhase(step: 18, stepsPerCycle: 40, kind: .steady)

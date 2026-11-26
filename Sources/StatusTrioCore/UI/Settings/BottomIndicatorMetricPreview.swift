@@ -32,11 +32,14 @@ enum BottomIndicatorMetricPreview {
     )
 
     static func footerBar(
-        metric: HardwareMonitorMetric,
+        metric selection: BottomIndicatorMetric,
         style: VolumeDisplayStyle,
         strokeScale: Double,
         baseColor: IconRGBA? = nil
     ) -> FooterState {
+        guard let metric = selection.hardwareMetric else {
+            return MemoryPressureFooterMapper.state(level: .normal, style: style, strokeScale: strokeScale)
+        }
         let color = IconColorRole.custom(
             baseColor ?? HardwareRingColorConfiguration.recommendedBaseColor(for: metric))
         let reading: (Double, HardwareMetricUnit) = switch metric {
@@ -53,10 +56,11 @@ enum BottomIndicatorMetricPreview {
     /// (rendered via the legacy mapper with a normal source), and only the footer
     /// is swapped for the representative metric bar.
     static func scene(
-        metric: HardwareMonitorMetric,
+        metric: BottomIndicatorMetric,
         style: VolumeDisplayStyle,
         strokeScale: Double,
-        baseColor: IconRGBA? = nil
+        baseColor: IconRGBA? = nil,
+        textScale: Double = StatusStrip.defaultMetricTextScale
     ) -> IconSceneState {
         let configuration = IconPresentationConfiguration(
             battery: .standard,
@@ -80,7 +84,8 @@ enum BottomIndicatorMetricPreview {
             statusColors: base.statusColors,
             bluetoothIconColor: base.bluetoothIconColor,
             bottomIndicatorSource: .metric,
-            statusStrip: StatusStrip(layout: .unified, snapshot: snapshot, threshold: 20, footerMetric: metric)
+            statusStrip: StatusStrip(layout: .unified, snapshot: snapshot, threshold: 20,
+                                     footerMetric: metric, footerMetricTextScale: textScale)
         )
     }
 }
