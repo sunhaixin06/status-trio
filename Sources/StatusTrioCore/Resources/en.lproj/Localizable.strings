@@ -1,12 +1,9 @@
 "menu.version" = "Status Trio %@";
 "statusStrip.layout" = "Status layout";
-"statusStrip.divider" = "Fine divider";
-"statusStrip.batteryWordmark" = "Battery wordmark";
-"statusStrip.capsule" = "Single capsule";
-"statusStrip.gauge" = "Battery gauge";
+"statusStrip.inline" = "Compact row";
 "statusStrip.unified" = "Three cells";
-"statusStrip.connection" = "Link focus";
-"statusStrip.alerts" = "Alerts first";
+"statusStrip.connection" = "Dual link capsules";
+"statusStrip.preview.lowAndOffline" = "Low battery and offline";
 "menu.settings" = "Settings…";
 "menu.quit" = "Quit Status Trio";
 "menu.about" = "About %@";

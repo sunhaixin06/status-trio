@@ -97,7 +97,7 @@ struct VolumeIndicatorPreview: View {
             ),
             bottomIndicatorSource: source
         )
-        scene.statusStrip = StatusStrip(layout: .divider, snapshot: snapshot,
+        scene.statusStrip = StatusStrip(layout: .inline, snapshot: snapshot,
                                         threshold: Int(store.batteryCriticalThreshold.rounded()),
                                         showsVolume: source == .volume)
         return scene

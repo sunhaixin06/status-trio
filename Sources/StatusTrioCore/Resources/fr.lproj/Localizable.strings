@@ -1,12 +1,9 @@
 "menu.version" = "Status Trio %@";
 "statusStrip.layout" = "Disposition des états";
-"statusStrip.divider" = "Séparateur fin";
-"statusStrip.batteryWordmark" = "Batterie chiffrée";
-"statusStrip.capsule" = "Capsule simple";
-"statusStrip.gauge" = "Jauge de batterie";
+"statusStrip.inline" = "Ligne compacte";
 "statusStrip.unified" = "Trois cellules";
-"statusStrip.connection" = "Connexion en avant";
-"statusStrip.alerts" = "Alertes prioritaires";
+"statusStrip.connection" = "Deux capsules de connexion";
+"statusStrip.preview.lowAndOffline" = "Batterie faible, hors ligne";
 "menu.settings" = "Réglages…";
 "menu.quit" = "Quitter Status Trio";
 "menu.about" = "À propos de %@";

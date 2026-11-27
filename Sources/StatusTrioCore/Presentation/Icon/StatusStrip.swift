@@ -1,17 +1,22 @@
 enum StatusStripLayout: String, CaseIterable, Identifiable, Sendable {
-    case divider, batteryWordmark, capsule, gauge, unified, connection, alerts
+    case inline, unified, connection
 
     var id: Self { self }
 
+    /// Old values are accepted on read, but only the three current choices are written.
+    init?(storedValue: String) {
+        switch storedValue {
+        case "divider", "batteryWordmark", "gauge": self = .inline
+        case "capsule", "alerts": self = .unified
+        default: self.init(rawValue: storedValue)
+        }
+    }
+
     var titleKey: LocalizationKey {
         switch self {
-        case .divider: .statusStripDivider
-        case .batteryWordmark: .statusStripBatteryWordmark
-        case .capsule: .statusStripCapsule
-        case .gauge: .statusStripGauge
+        case .inline: .statusStripInline
         case .unified: .statusStripUnified
         case .connection: .statusStripConnection
-        case .alerts: .statusStripAlerts
         }
     }
 }
@@ -56,8 +61,6 @@ struct StatusStrip: Hashable, Sendable {
     let airPodsMarkerScale: Double
     let showsAirPodsSymbol: Bool
 
-    var hasAlert: Bool { lowBattery || link == .offline }
-
     init(layout: StatusStripLayout, snapshot: StatusSnapshot, threshold: Int, usesSystemBattery: Bool = true,
          prioritizesNetworkErrors: Bool = true, showsVolume: Bool = true, centerShowsNetwork: Bool = true,
          footerMetric: BottomIndicatorMetric? = nil, footerMetricTextScale: Double = Self.defaultMetricTextScale,
@@ -91,10 +94,10 @@ struct StatusStrip: Hashable, Sendable {
             case .wifi, .unknown:
                 switch snapshot.wifi.state {
                 case .connected:
-                    let label: String? = switch layout == .connection ? snapshot.wifi.band : nil {
-                    case .twoPointFourGHz: "2.4G"
-                    case .fiveGHz: "5G"
-                    case .sixGHz: "6G"
+                    let label: String? = switch layout == .connection && centerShowsNetwork ? snapshot.wifi.band : nil {
+                    case .twoPointFourGHz: "2.4 GHz"
+                    case .fiveGHz: "5 GHz"
+                    case .sixGHz: "6 GHz"
                     case nil: nil
                     }
                     link = .wifi(label)
@@ -104,13 +107,12 @@ struct StatusStrip: Hashable, Sendable {
             case .offline: link = .offline
             }
         }
-        let showsSpeaker = layout != .alerts && showsVolume
-        audio = showsSpeaker ? snapshot.volume.scalar.flatMap { value in
+        audio = showsVolume ? snapshot.volume.scalar.flatMap { value in
             guard value.isFinite else { return nil }
             let step = Int((min(1, max(0, value)) * 20).rounded())
             return step == 0 ? .silent : step <= 7 ? .low : .high
         } : nil
-        muted = showsSpeaker && snapshot.volume.isMuted
+        muted = showsVolume && snapshot.volume.isMuted
         showsOutageInCenter = link == .offline && prioritizesNetworkErrors
     }
 

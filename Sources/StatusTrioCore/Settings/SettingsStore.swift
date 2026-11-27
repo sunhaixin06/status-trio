@@ -65,7 +65,7 @@ final class SettingsStore: ObservableObject {
     static let iconSizeRange: ClosedRange<Double> = 16...36
     static let defaultIconSize: Double = 24
     static let iconSizeDefaultsKey = "menuBarIconSize"
-    static let statusStripLayoutDefaultsKey = "statusStripLayout"
+    nonisolated static let statusStripLayoutDefaultsKey = "statusStripLayout"
     nonisolated static let footerMetricTextScaleDefaultsKey = "footerMetricTextScale"
 
     static let batteryCriticalThresholdRange: ClosedRange<Double> = 0...100
@@ -1813,6 +1813,15 @@ final class SettingsStore: ObservableObject {
         bottomIndicatorStyle(for: bottomIndicatorSource)
     }
 
+    func setBottomIndicatorStyle(_ style: VolumeDisplayStyle) {
+        switch bottomIndicatorSource {
+        case .volume, .hidden: volumeDisplayStyle = style
+        case .wifi: wifiBottomIndicatorStyle = style
+        case .battery: batteryBottomIndicatorStyle = style
+        case .metric: metricBottomIndicatorStyle = style
+        }
+    }
+
     @Published var ringStrokeStyle: RingStrokeStyle {
         didSet {
             defaults.set(ringStrokeStyle.rawValue, forKey: Self.ringStrokeStyleDefaultsKey)
@@ -2982,8 +2991,12 @@ final class SettingsStore: ObservableObject {
             .flatMap(MenuBarRightClickAction.init(rawValue:))
             ?? .contextMenu
         self.iconSize = Self.clampedIconSize(storedIconSize ?? Self.defaultIconSize)
-        self.statusStripLayout = defaults.string(forKey: Self.statusStripLayoutDefaultsKey)
-            .flatMap(StatusStripLayout.init(rawValue:)) ?? .unified
+        let storedStripLayout = defaults.string(forKey: Self.statusStripLayoutDefaultsKey)
+        let migratedStripLayout = storedStripLayout.flatMap(StatusStripLayout.init(storedValue:))
+        self.statusStripLayout = migratedStripLayout ?? .unified
+        if let migratedStripLayout, migratedStripLayout.rawValue != storedStripLayout {
+            defaults.set(migratedStripLayout.rawValue, forKey: Self.statusStripLayoutDefaultsKey)
+        }
         self.footerMetricTextScale = StatusStrip.clampedMetricTextScale(
             (defaults.object(forKey: Self.footerMetricTextScaleDefaultsKey) as? NSNumber)?.doubleValue
                 ?? StatusStrip.defaultMetricTextScale

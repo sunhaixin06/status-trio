@@ -1,12 +1,9 @@
 "menu.version" = "Status Trio %@";
 "statusStrip.layout" = "Statuslayout";
-"statusStrip.divider" = "Feine Trennlinie";
-"statusStrip.batteryWordmark" = "Akku-Ziffern";
-"statusStrip.capsule" = "Einzelkapsel";
-"statusStrip.gauge" = "Akkuskala";
+"statusStrip.inline" = "Kompakte Zeile";
 "statusStrip.unified" = "Dreierleiste";
-"statusStrip.connection" = "Verbindungsfokus";
-"statusStrip.alerts" = "Warnungen zuerst";
+"statusStrip.connection" = "Zwei Verbindungskapseln";
+"statusStrip.preview.lowAndOffline" = "Niedriger Akkustand, offline";
 "menu.settings" = "Einstellungen…";
 "menu.quit" = "Status Trio beenden";
 "menu.about" = "Über %@";

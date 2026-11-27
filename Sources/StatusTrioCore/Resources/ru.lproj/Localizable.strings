@@ -1,12 +1,9 @@
 "menu.version" = "Status Trio %@";
 "statusStrip.layout" = "Вид строки состояния";
-"statusStrip.divider" = "Тонкий разделитель";
-"statusStrip.batteryWordmark" = "Заряд цифрами";
-"statusStrip.capsule" = "Одна капсула";
-"statusStrip.gauge" = "Шкала заряда";
+"statusStrip.inline" = "Компактная строка";
 "statusStrip.unified" = "Три секции";
-"statusStrip.connection" = "Акцент на сети";
-"statusStrip.alerts" = "Предупреждения первыми";
+"statusStrip.connection" = "Две капсулы связи";
+"statusStrip.preview.lowAndOffline" = "Низкий заряд, нет сети";
 "menu.settings" = "Настройки…";
 "menu.quit" = "Завершить Status Trio";
 "menu.about" = "О программе «%@»";

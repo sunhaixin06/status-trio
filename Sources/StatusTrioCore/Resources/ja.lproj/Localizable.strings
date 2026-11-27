@@ -1,12 +1,9 @@
 "menu.version" = "Status Trio %@";
 "statusStrip.layout" = "ステータス配置";
-"statusStrip.divider" = "細い区切り";
-"statusStrip.batteryWordmark" = "バッテリー文字";
-"statusStrip.capsule" = "単一カプセル";
-"statusStrip.gauge" = "電池ゲージ";
+"statusStrip.inline" = "コンパクト横並び";
 "statusStrip.unified" = "3分割";
-"statusStrip.connection" = "接続を強調";
-"statusStrip.alerts" = "警告優先";
+"statusStrip.connection" = "接続デュアルカプセル";
+"statusStrip.preview.lowAndOffline" = "バッテリー低下・オフライン";
 "menu.settings" = "設定…";
 "menu.quit" = "Status Trioを終了";
 "menu.about" = "%@ について";

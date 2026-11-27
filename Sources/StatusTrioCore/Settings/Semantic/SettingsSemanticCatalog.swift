@@ -309,12 +309,8 @@ enum SettingsSemanticCatalog {
         pref("icon.statusStrip.layout", "状态条布局", "icon", .enumeration, "菜单栏和 Dock 共用的 DIY 状态条排版。") { d in
             d.uiPath = "设置 › 应用图标 › 整体外观"
             d.defaultValue = s("unified")
-            d.options = [
-                opt("divider", "轻隔线"), opt("batteryWordmark", "电池字标"), opt("capsule", "单胶囊"),
-                opt("gauge", "电量刻度"), opt("unified", "一体三格"), opt("connection", "连接微舱"),
-                opt("alerts", "异常优先"),
-            ]
-            d.storageKey = "statusStripLayout"
+            d.options = [opt("inline", "极简横排"), opt("unified", "一体三格"), opt("connection", "连接双舱")]
+            d.storageKey = SettingsStore.statusStripLayoutDefaultsKey
             d.accessPolicy = .profileSafe
             d.provider = "core"
         },

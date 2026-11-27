@@ -37,10 +37,10 @@ struct AppIconSectionView: View {
 
     @ViewBuilder
     private var fullAppIconContent: some View {
+        MenuBarAppearanceSettings(store: store)
         iconGuideGroup
         placementGroup
         menuBarGroup
-        statusIconGroup
         MiddleIconSettingsGroup(store: store, statusStore: statusStore)
         dockGroup
         AppIconRingView(store: store, statusStore: statusStore, hasBattery: statusStore.snapshot.battery.isPresent)
@@ -57,10 +57,10 @@ struct AppIconSectionView: View {
         case .appIconAppearance:
             // Surface choice, menu-bar size, shared ring stroke, Dock background
             // and the icon guide all describe the icon as a whole.
+            MenuBarAppearanceSettings(store: store)
             iconGuideGroup
             placementGroup
             menuBarGroup
-            statusIconGroup
             dockGroup
         case .appIconRing:
             AppIconRingView(
@@ -140,19 +140,6 @@ struct AppIconSectionView: View {
     private var menuBarGroup: some View {
         SettingsGroup(localization.string(.settingsMenuBarTitle)) {
             SettingsRow(
-                "rectangle.split.3x1", tint: .teal,
-                title: localization.string(.statusStripLayout)
-            ) {
-                Picker(localization.string(.statusStripLayout), selection: $store.statusStripLayout) {
-                    ForEach(StatusStripLayout.allCases) { layout in
-                        Text(localization.string(layout.titleKey)).tag(layout)
-                    }
-                }
-                .labelsHidden()
-                .accessibilityIdentifier("appIcon.statusStripLayout")
-            }
-            SettingsDivider()
-            SettingsRow(
                 "menubar.rectangle",
                 tint: .indigo,
                 title: localization.string(.settingsIconSize),
@@ -182,37 +169,6 @@ struct AppIconSectionView: View {
                         .frame(width: 44, alignment: .trailing)
                 }
             }
-        }
-    }
-
-    // MARK: - Shared Status Icon Group
-
-    private var statusIconGroup: some View {
-        SettingsGroup(localization.string(.settingsStatusIconTitle)) {
-            SettingsPictureRow(
-                "lineweight",
-                tint: .indigo,
-                title: localization.string(.settingsRingStrokeStyle),
-                subtitle: localization.string(.settingsRingStrokeStyleDescription),
-                selection: $store.ringStrokeStyle,
-                options: [RingStrokeStyle.light, .regular, .bold],
-                previewSize: SettingsMetrics.appIconPictureOptionPreviewSize,
-                caption: { style in
-                    switch style {
-                    case .light: return localization.string(.settingsRingStrokeStyleLight)
-                    case .regular: return localization.string(.settingsRingStrokeStyleRegular)
-                    case .bold: return localization.string(.settingsRingStrokeStyleBold)
-                    }
-                },
-                preview: { style in
-                    RingStrokeStylePreview(
-                        style: style,
-                        isDarkBackground: previewIsDark,
-                        store: store,
-                        statusStore: statusStore
-                    )
-                }
-            )
         }
     }
 

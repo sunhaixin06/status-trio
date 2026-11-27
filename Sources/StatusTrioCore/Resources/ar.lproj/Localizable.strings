@@ -1,12 +1,9 @@
 "menu.version" = "Status Trio %@";
 "statusStrip.layout" = "تخطيط الحالة";
-"statusStrip.divider" = "فاصل رفيع";
-"statusStrip.batteryWordmark" = "البطارية بالأرقام";
-"statusStrip.capsule" = "كبسولة واحدة";
-"statusStrip.gauge" = "مقياس البطارية";
+"statusStrip.inline" = "صف مختصر";
 "statusStrip.unified" = "ثلاث خانات";
-"statusStrip.connection" = "إبراز الاتصال";
-"statusStrip.alerts" = "التنبيهات أولاً";
+"statusStrip.connection" = "كبسولتا الاتصال";
+"statusStrip.preview.lowAndOffline" = "بطارية منخفضة وغير متصل";
 "menu.settings" = "الإعدادات…";
 "menu.quit" = "إنهاء Status Trio";
 "menu.about" = "حول %@";

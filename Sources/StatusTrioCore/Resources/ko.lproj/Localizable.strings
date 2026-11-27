@@ -1,12 +1,9 @@
 "menu.version" = "Status Trio %@";
 "statusStrip.layout" = "상태 레이아웃";
-"statusStrip.divider" = "얇은 구분선";
-"statusStrip.batteryWordmark" = "배터리 숫자";
-"statusStrip.capsule" = "단일 캡슐";
-"statusStrip.gauge" = "배터리 눈금";
+"statusStrip.inline" = "컴팩트 가로줄";
 "statusStrip.unified" = "3칸 캡슐";
-"statusStrip.connection" = "연결 강조";
-"statusStrip.alerts" = "경고 우선";
+"statusStrip.connection" = "연결 듀얼 캡슐";
+"statusStrip.preview.lowAndOffline" = "배터리 부족 및 오프라인";
 "menu.settings" = "설정…";
 "menu.quit" = "Status Trio 종료";
 "menu.about" = "%@ 정보";

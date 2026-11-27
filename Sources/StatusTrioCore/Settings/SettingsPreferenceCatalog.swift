@@ -45,6 +45,9 @@ enum SettingsPreferenceCatalog {
                 let prepared = prepareBatteryColors(roles)
                 result[key] = .object(prepared.values)
                 warnings.append(contentsOf: prepared.warnings)
+            } else if key == SettingsStore.statusStripLayoutDefaultsKey,
+                      case let .string(raw) = value, let layout = StatusStripLayout(storedValue: raw) {
+                result[key] = .string(layout.rawValue)
             } else if preference.isValid(value) {
                 result[key] = value
             } else {
@@ -135,7 +138,7 @@ enum SettingsPreferenceCatalog {
 
     private static var iconPreferences: [Preference] {
         [
-            enumeration("statusStripLayout", \.statusStripLayout, default: .unified),
+            enumeration(SettingsStore.statusStripLayoutDefaultsKey, \.statusStripLayout, default: .unified),
             number(SettingsStore.footerMetricTextScaleDefaultsKey, \.footerMetricTextScale,
                    default: StatusStrip.defaultMetricTextScale, range: StatusStrip.metricTextScaleRange),
             number("iconSize", \.iconSize, default: SettingsStore.defaultIconSize, range: SettingsStore.iconSizeRange),

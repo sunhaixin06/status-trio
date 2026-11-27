@@ -1,12 +1,9 @@
 "menu.version" = "Status Trio %@";
 "statusStrip.layout" = "狀態版面";
-"statusStrip.divider" = "細分隔線";
-"statusStrip.batteryWordmark" = "電池字標";
-"statusStrip.capsule" = "單膠囊";
-"statusStrip.gauge" = "電量刻度";
+"statusStrip.inline" = "極簡橫排";
 "statusStrip.unified" = "一體三格";
-"statusStrip.connection" = "連線微艙";
-"statusStrip.alerts" = "異常優先";
+"statusStrip.connection" = "連線雙艙";
+"statusStrip.preview.lowAndOffline" = "低電斷網";
 "menu.settings" = "設定…";
 "menu.quit" = "結束 Status Trio";
 "menu.about" = "關於 %@";

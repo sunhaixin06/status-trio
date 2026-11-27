@@ -95,6 +95,31 @@ final class SettingsPreferenceCatalogTests: XCTestCase {
         }
     }
 
+    func testLegacyStripLayoutsMigrateFromLocalDefaultsAndTransfers() {
+        let replacements: [(String, StatusStripLayout)] = [
+            ("divider", .inline), ("batteryWordmark", .inline), ("gauge", .inline),
+            ("capsule", .unified), ("alerts", .unified),
+            ("inline", .inline), ("unified", .unified), ("connection", .connection),
+        ]
+        let key = SettingsStore.statusStripLayoutDefaultsKey
+        withStore { store, defaults in
+            for (raw, layout) in replacements {
+                defaults.set(raw, forKey: key)
+                XCTAssertEqual(SettingsStore(defaults: defaults).statusStripLayout, layout, raw)
+                XCTAssertEqual(defaults.string(forKey: key), layout.rawValue, raw)
+
+                let prepared = SettingsPreferenceCatalog.prepare([key: .string(raw)])
+                XCTAssertTrue(prepared.warnings.isEmpty, raw)
+                XCTAssertEqual(prepared.values[key], .string(layout.rawValue), raw)
+                SettingsPreferenceCatalog.apply([key: .string(raw)], to: store)
+                XCTAssertEqual(store.statusStripLayout, layout, raw)
+            }
+            let invalid = SettingsPreferenceCatalog.prepare([key: .string("unknown-layout")])
+            XCTAssertEqual(invalid.values[key], .string("unified"))
+            XCTAssertFalse(invalid.warnings.isEmpty)
+        }
+    }
+
     func testCustomFooterReadingScaleValidatesRange() {
         withStore { store, defaults in
             XCTAssertEqual(store.footerMetricTextScale, 1)

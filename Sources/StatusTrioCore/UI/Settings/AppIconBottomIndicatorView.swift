@@ -157,13 +157,7 @@ struct AppIconBottomIndicatorView: View {
             selection: $store.bottomIndicatorSource,
             options: BottomIndicatorSource.allCases,
             caption: { source in
-                switch source {
-                case .volume: return localization.string(.settingsBottomIndicatorSourceVolume)
-                case .wifi: return localization.string(.settingsBottomIndicatorSourceWiFi)
-                case .battery: return localization.string(.settingsBottomIndicatorSourceBattery)
-                case .metric: return localization.string(.settingsBottomIndicatorSourceMetric)
-                case .hidden: return localization.string(.settingsBottomIndicatorSourceHidden)
-                }
+                localization.string(source.settingsTitleKey)
             },
             preview: { source in
                 BottomIndicatorSourcePreview(
@@ -214,24 +208,10 @@ struct AppIconBottomIndicatorView: View {
             title: localization.string(.settingsBottomIndicatorMetric),
             subtitle: localization.string(.settingsBottomIndicatorMetricDescription),
             selection: $store.bottomIndicatorMetric,
-            groups: footerMetricGroups,
+            groups: FooterMetricChoices.groups(
+                showsTemperatures: store.hardwareTemperatureMonitoringEnabled, localization: localization),
             label: { localization.string($0.titleKey) }
         )
-    }
-
-    /// The CPU and GPU groups follow the ring's temperature monitoring setting.
-    private var footerMetricGroups: [(title: String, options: [BottomIndicatorMetric])] {
-        let cpu: [BottomIndicatorMetric] =
-            store.hardwareTemperatureMonitoringEnabled ? [.cpuUsage, .cpuTemperature] : [.cpuUsage]
-        let gpu: [BottomIndicatorMetric] =
-            store.hardwareTemperatureMonitoringEnabled ? [.gpuUsage, .gpuTemperature] : [.gpuUsage]
-        return [
-            ("CPU", cpu),
-            ("GPU", gpu),
-            (localization.string(.hardwareDetailTitleMemory), [.memoryUsage, .memoryPressure]),
-            (localization.string(.settingsHardwareRingGroupOther),
-             [.batteryTemperature, .fan, .downloadSpeed, .uploadSpeed]),
-        ]
     }
 
     /// Colour options for the metric bottom source, mirroring the top arc's
@@ -338,23 +318,12 @@ struct AppIconBottomIndicatorView: View {
             subtitle: localization.string(.settingsAudioIndicatorStyleDescription),
             selection: Binding(
                 get: { store.effectiveBottomIndicatorStyle },
-                set: { newValue in
-                    switch store.bottomIndicatorSource {
-                    case .volume, .hidden: store.volumeDisplayStyle = newValue
-                    case .wifi: store.wifiBottomIndicatorStyle = newValue
-                    case .battery: store.batteryBottomIndicatorStyle = newValue
-                    case .metric: store.metricBottomIndicatorStyle = newValue
-                    }
-                }
+                set: { store.setBottomIndicatorStyle($0) }
             ),
             options: VolumeDisplayStyle.allCases,
             previewSize: CGSize(width: 68, height: 44),
             caption: { style in
-                switch style {
-                case .dots: return localization.string(.settingsAudioIndicatorStyleDots)
-                case .arc: return localization.string(.settingsAudioIndicatorStyleArc)
-                case .verticalBar: return localization.string(.settingsAudioIndicatorStyleVerticalBar)
-                }
+                localization.string(style.settingsTitleKey)
             },
             preview: { style in
                 VolumeIndicatorPreview(

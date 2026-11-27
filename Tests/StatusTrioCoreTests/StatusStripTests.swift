@@ -34,7 +34,8 @@ final class StatusStripTests: XCTestCase {
         try XCTUnwrap(NSBitmapImageRep(cgImage: image).representation(using: .png, properties: [:]))
     }
 
-    func testAllSevenLayoutsDrawDistinctMenuBarAndDockImages() throws {
+    func testAllThreeLayoutsDrawDistinctMenuBarAndDockImages() throws {
+        XCTAssertEqual(StatusStripLayout.allCases, [.inline, .unified, .connection])
         for dark in [false, true] {
             var menu = Set<Data>(), dock = Set<Data>()
             for layout in StatusStripLayout.allCases {
@@ -52,23 +53,30 @@ final class StatusStripTests: XCTestCase {
                                                                     pixelLength: 128))
                 dock.insert(try data(tile))
             }
-            XCTAssertEqual(menu.count, 7)
-            XCTAssertEqual(dock.count, 7)
+            XCTAssertEqual(menu.count, 3)
+            XCTAssertEqual(dock.count, 3)
         }
     }
 
-    func testAlertsExpandOnlyForKnownLowBatteryOrOffline() {
-        let normal = StatusStrip(layout: .alerts, snapshot: snapshot(), threshold: 20)
-        let unknown = StatusStrip(layout: .alerts, snapshot: .placeholder, threshold: 20)
-        let low = StatusStrip(layout: .alerts, snapshot: snapshot(level: 20), threshold: 20)
-        let offline = StatusStrip(layout: .alerts, snapshot: snapshot(connection: .offline), threshold: 20)
-        XCTAssertFalse(normal.hasAlert)
-        XCTAssertFalse(unknown.hasAlert)
-        XCTAssertTrue(low.lowBattery)
-        XCTAssertEqual(offline.link, .offline)
-        XCTAssertEqual(StatusStripRenderer.width(normal), StatusStripRenderer.width(unknown))
-        XCTAssertGreaterThan(StatusStripRenderer.width(low), StatusStripRenderer.width(normal))
-        XCTAssertEqual(StatusStripRenderer.width(low), StatusStripRenderer.width(offline))
+    func testAllLayoutsStillDrawWarningsWithoutChangingWidth() throws {
+        for layout in StatusStripLayout.allCases {
+            let normal = scene(layout, from: snapshot(charging: false))
+            let low = scene(layout, from: snapshot(level: 20, charging: false))
+            let offline = scene(layout, from: snapshot(charging: false, connection: .offline))
+            XCTAssertTrue(try XCTUnwrap(low.statusStrip).lowBattery)
+            XCTAssertTrue(try XCTUnwrap(offline.statusStrip).showsOutageInCenter)
+            let normalRaster = try raster(normal, dark: false)
+            for warning in [low, offline] {
+                let warningRaster = try raster(warning, dark: false)
+                XCTAssertEqual(warningRaster.width, normalRaster.width)
+                XCTAssertNotEqual(try data(warningRaster), try data(normalRaster))
+                let normalDock = try XCTUnwrap(DockIconRenderer.tileImage(
+                    scene: normal, backgroundStyle: .dark, pixelLength: 128))
+                let warningDock = try XCTUnwrap(DockIconRenderer.tileImage(
+                    scene: warning, backgroundStyle: .dark, pixelLength: 128))
+                XCTAssertNotEqual(try data(normalDock), try data(warningDock))
+            }
+        }
     }
 
     func testOnlyConnectionLayoutProjectsBand() {
@@ -76,10 +84,12 @@ final class StatusStripTests: XCTestCase {
             let five = StatusStrip(layout: layout, snapshot: snapshot(), threshold: 20)
             let six = StatusStrip(layout: layout, snapshot: snapshot(band: .sixGHz), threshold: 20)
             if layout == .connection {
-                XCTAssertEqual(five.link, .wifi("5G"))
-                XCTAssertEqual(six.link, .wifi("6G"))
+                XCTAssertEqual(five.link, .wifi("5 GHz"))
+                XCTAssertEqual(six.link, .wifi("6 GHz"))
             } else { XCTAssertEqual(five, six) }
         }
+        let customCenter = StatusStrip(layout: .connection, snapshot: snapshot(), threshold: 20, centerShowsNetwork: false)
+        XCTAssertEqual(customCenter.link, .wifi(nil))
     }
 
     func testOnlyTheDesignatedLayoutsDrawCapsuleBackgrounds() throws {
@@ -88,32 +98,27 @@ final class StatusStripTests: XCTestCase {
                 let normal = try PixelBuffer(image: raster(scene(layout, from: snapshot()), dark: dark))
                 let warning = try PixelBuffer(image: raster(scene(layout, from: snapshot(level: 12, charging: false,
                                                                                          connection: .offline)), dark: dark))
-                let x: Int = switch layout {
-                case .capsule: 50
-                case .connection: 79
-                case .alerts: 12
-                default: 16
+                // Sample three points above the glyphs: each capsule and the gap between them.
+                for pixels in [normal, warning] {
+                    for x in [23, 94] {
+                        XCTAssertEqual(pixels.rgba(x: x * 2, y: 6).alpha > 16, layout != .inline, "\(layout) fill")
+                    }
+                    XCTAssertEqual(pixels.rgba(x: 50 * 2, y: 6).alpha > 16, layout == .unified, "\(layout) seam")
                 }
-                let showsCapsule = layout == .capsule || layout == .unified || layout == .connection
-                // Sample inside the top padding of each capsule, above the glyphs.
-                XCTAssertEqual(normal.rgba(x: x * 2, y: 6).alpha > 16, showsCapsule, "\(layout) normal")
-                XCTAssertEqual(warning.rgba(x: x * 2, y: 6).alpha > 16, showsCapsule || layout == .alerts,
-                               "\(layout) alert")
-                XCTAssertEqual(normal.rgba(x: 32, y: 6).alpha > 16, layout == .unified, "\(layout) outer frame")
             }
         }
     }
 
     func testReadableNetworkAndVolumeInkShareTheCenterlineWithoutTouching() throws {
         for (size, scale) in [(CGFloat(24), CGFloat(1)), (24, 2), (16, 2)] {
-            for layout in StatusStripLayout.allCases where layout != .alerts {
+            for layout in StatusStripLayout.allCases {
                 for link in [NetworkConnection.wifi, .offline] {
                     let scene = scene(layout, from: snapshot(connection: link))
                     let width = StatusStripRenderer.width(try XCTUnwrap(scene.statusStrip))
                     let networkX: CGFloat = switch layout {
-                    case .unified: 70
-                    case .connection: link == .wifi ? 66.5 : 79.5
-                    default: 13
+                    case .inline: 59
+                    case .unified: 62
+                    case .connection: link == .wifi ? 64 : 77
                     }
                     let pixels = try PixelBuffer(image: raster(scene, dark: true, scale: scale, size: size))
                     func ink(x: CGFloat, width: CGFloat) throws -> CGRect {
@@ -139,7 +144,7 @@ final class StatusStripTests: XCTestCase {
     }
 
     func testMuteChangesTheSpeakerWithoutChangingLayoutWidth() throws {
-        for layout in StatusStripLayout.allCases where layout != .alerts {
+        for layout in StatusStripLayout.allCases {
             let playing = try raster(scene(layout, from: snapshot()), dark: false)
             let muted = try raster(scene(layout, from: snapshot(muted: true)), dark: false)
             XCTAssertEqual(playing.width, muted.width)
@@ -147,7 +152,7 @@ final class StatusStripTests: XCTestCase {
             XCTAssertNotEqual(try data(XCTUnwrap(playing.cropping(to: speaker))),
                               try data(XCTUnwrap(muted.cropping(to: speaker))), "\(layout)")
         }
-        let hidden = StatusStrip(layout: .divider, snapshot: snapshot(muted: true), threshold: 20, showsVolume: false)
+        let hidden = StatusStrip(layout: .inline, snapshot: snapshot(muted: true), threshold: 20, showsVolume: false)
         XCTAssertNil(hidden.audio)
         XCTAssertFalse(hidden.muted)
     }
@@ -209,7 +214,7 @@ final class StatusStripTests: XCTestCase {
             XCTAssertNotEqual(try data(preview(sample(.downloadSpeed, 0.85, reading: "125.8 MB/s"))),
                               try data(preview(sample(.downloadSpeed, 1.20, reading: "125.8 MB/s"))), "\(style)")
 
-            for layout in StatusStripLayout.allCases where layout != .alerts {
+            for layout in StatusStripLayout.allCases {
                 let small = try raster(sample(.cpuTemperature, 0.85, layout: layout), dark: false)
                 let large = try raster(sample(.cpuTemperature, 1.20, layout: layout), dark: false)
                 XCTAssertEqual(small.width, large.width)
@@ -243,12 +248,12 @@ final class StatusStripTests: XCTestCase {
                 connection: .standard, volume: .standard, bluetooth: .standard
             )
             var scene = IconPreviewScene.make(status: MenuBarStatus(snapshot: snapshot()), configuration: configuration)
-            scene.statusStrip = StatusStrip(layout: .divider, snapshot: snapshot(), threshold: 20)
+            scene.statusStrip = StatusStrip(layout: .inline, snapshot: snapshot(), threshold: 20)
             return scene
         }
 
-        let bolt = CGRect(x: 62, y: 0, width: 15, height: 17)
-        let digits = CGRect(x: 33, y: 4, width: 28, height: 12)
+        let bolt = CGRect(x: 33, y: 0, width: 15, height: 17)
+        let digits = CGRect(x: 4, y: 4, width: 28, height: 12)
         let peak = ChargingEffectPhase(step: 10, stepsPerCycle: 40, kind: .steady)
         let trough = ChargingEffectPhase(step: 30, stepsPerCycle: 40, kind: .steady)
         func pixels(_ scene: IconSceneState, phase: ChargingEffectPhase? = nil) throws -> PixelBuffer {
@@ -270,7 +275,7 @@ final class StatusStripTests: XCTestCase {
     }
 
     func testAllVisibleMetersGetThickerAndStayInsideTheMenuBar() throws {
-        for layout in StatusStripLayout.allCases where layout != .alerts {
+        for layout in StatusStripLayout.allCases {
             for style in VolumeDisplayStyle.allCases {
                 for (size, scale) in [(CGFloat(16), CGFloat(1)), (16, 2), (24, 1), (24, 2)] {
                     var batteryInk = [Int](), audioInk = [Int]()
@@ -281,8 +286,7 @@ final class StatusStripTests: XCTestCase {
                         let expectedWidth = Int(ceil(width * size / 24 * scale))
                         XCTAssertEqual(image.width, expectedWidth, "\(layout), \(size)@\(scale)")
                         XCTAssertEqual(image.height, Int(size * scale), "\(layout), \(size)@\(scale)")
-                        let trackX: CGFloat = layout == .connection ? 8 : layout == .unified ? 10 : 33
-                        let batteryTrack = CGRect(x: trackX, y: 16.5, width: 24, height: 5.5)
+                        let batteryTrack = CGRect(x: 5, y: 16.5, width: 24, height: 5.5)
                         let audioTrack = CGRect(x: width - 22, y: 4, width: 20, height: 16)
                         func ink(_ rect: CGRect) -> Int {
                             image.alphaSum(inSVGRect: rect, size: StatusIconGeometry.canvas.width, scale: size / 24 * scale)
@@ -302,9 +306,9 @@ final class StatusStripTests: XCTestCase {
     }
 
     func testVerticalVolumeFillsFromBottomAndMuteClearsIt() throws {
-        let playing = meterScene(.divider, style: .verticalBar, stroke: .bold)
-        let muted = meterScene(.divider, style: .verticalBar, stroke: .bold, muted: true)
-        let horizontal = meterScene(.divider, style: .arc, stroke: .bold)
+        let playing = meterScene(.inline, style: .verticalBar, stroke: .bold)
+        let muted = meterScene(.inline, style: .verticalBar, stroke: .bold, muted: true)
+        let horizontal = meterScene(.inline, style: .arc, stroke: .bold)
         let w = StatusStripRenderer.width(try XCTUnwrap(playing.statusStrip))
         func ink(_ scene: IconSceneState, y: CGFloat) throws -> Int {
             let image = try PixelBuffer(image: raster(scene, dark: false))
@@ -374,14 +378,14 @@ final class StatusStripTests: XCTestCase {
         }
         let sheetWidth: CGFloat = 842
         let sampleWidth: CGFloat = 162
-        let canvas = try SheetCanvas.makeContext(width: sheetWidth, height: 504, scale: 2)
+        let canvas = try SheetCanvas.makeContext(width: sheetWidth, height: 256, scale: 2)
         let localization = Localization()
         let font = CTFontCreateWithName("HelveticaNeue-Medium" as CFString, 15, nil)
         let heading = CGColor(gray: 0.12, alpha: 1)
         canvas.setFillColor(CGColor(gray: 0.975, alpha: 1))
-        canvas.fill(CGRect(x: 0, y: 0, width: sheetWidth, height: 504))
+        canvas.fill(CGRect(x: 0, y: 0, width: sheetWidth, height: 256))
         for (i, layout) in StatusStripLayout.allCases.enumerated() {
-            let y = CGFloat(404 - i * 62)
+            let y = CGFloat(156 - i * 62)
             let normal = scene(layout, from: snapshot())
             let warning = scene(layout, from: snapshot(level: 12, charging: false, connection: .offline))
             let muted = scene(layout, from: snapshot(muted: true))
@@ -397,7 +401,7 @@ final class StatusStripTests: XCTestCase {
             }
         }
         for (x, title) in [(16, "Status Trio DIY"), (142, "Light"), (316, "Dark"), (490, "Low + offline"), (664, "Muted")] {
-            SheetCanvas.draw(title, font: font, color: heading, topLeft: CGPoint(x: x, y: 477), in: canvas)
+            SheetCanvas.draw(title, font: font, color: heading, topLeft: CGPoint(x: x, y: 229), in: canvas)
         }
         try SheetCanvas.pngData(canvas).write(to: URL(fileURLWithPath: path))
     }
@@ -431,7 +435,7 @@ final class StatusStripTests: XCTestCase {
             let label = localization.string(key, language: .simplifiedChinese)
             SheetCanvas.draw(label, font: regular, color: SheetCanvas.ink, baseline: y + 15, x: 24, in: canvas)
             var scene = IconPreviewScene.make(snapshot: status, configuration: .standard, isHighPowerMode: role == .highPower)
-            scene.statusStrip = StatusStrip(layout: .capsule, snapshot: status, threshold: 20)
+            scene.statusStrip = StatusStrip(layout: .unified, snapshot: status, threshold: 20)
             XCTAssertEqual(scene.outerRing?.segments.first?.color, role)
             for (dark, x) in [(false, CGFloat(202)), (true, 390)] {
                 let panel = CGRect(x: x, y: y, width: 166, height: 40)
